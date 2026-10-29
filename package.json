@@ -1,0 +1,23 @@
+{
+  "name": "asta-qi-demo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "postinstall": "node scripts/prepare-assets.mjs",
+    "build": "vite build source --config source/vite.config.ts --outDir ../site-build"
+  },
+  "dependencies": {
+    "jszip": "^3.10.2",
+    "lucide-react": "^1.31.0",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^4.10.38",
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
+  },
+  "devDependencies": {
+    "vite": "8.0.13",
+    "@vitejs/plugin-react": "6.0.2",
+    "typescript": "5.9.3"
+  }
+}
