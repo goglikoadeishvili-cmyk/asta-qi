@@ -113,16 +113,14 @@ export async function makeReport(i:Inspection,drawing:Drawing,settings:Settings,
  const photosFor=(questionId:string)=>i.photos.filter(p=>p.questionId===questionId);
  type Picture={photo:Inspection['photos'][number];image:any};
  const images=new Map<string,Picture>();
- for(const p of i.photos){console.log('PDF trace: start photo',p.id);
+ for(const p of i.photos){
   const url=urlFor(p.reportId||p.id)||urlFor(p.id);
   if(!url)throw new Error('Photo evidence is missing. Restore the original evidence backup.');
   const response=await fetch(url);if(!response.ok)throw new Error('Photo evidence could not be loaded.');
-  const bytes=await response.arrayBuffer();console.log('PDF trace: bytes',bytes.byteLength);
+  const bytes=await response.arrayBuffer();
   const signature=new Uint8Array(bytes),jpeg=signature[0]===0xff&&signature[1]===0xd8,png=signature[0]===0x89&&signature[1]===0x50&&signature[2]===0x4e&&signature[3]===0x47;
   if(!jpeg&&!png)throw new Error('Unsupported photo format; use JPEG or PNG evidence.');
-  console.log('PDF trace: embed format',jpeg?'jpg':'png');
   const image:any=jpeg?await doc.embedJpg(bytes):await doc.embedPng(bytes);
-  console.log('PDF trace: embedded photo',p.id);
   images.set(p.id,{photo:p,image});
  }
  const extra=i.photos.filter(p=>!p.questionId||!checks.some(a=>a.id===p.questionId));
