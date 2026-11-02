@@ -48,3 +48,44 @@ import {excerptGeometry} from '../source/lib/report-geometry';
 test('drawing excerpt maps the saved normalised pin correctly, including all page edges',()=>{for(const x of [0,.1,.5,.9,1])for(const y of [0,.5,1]){const g=excerptGeometry(2600,1800,{x,y,page:3});assert.ok(g.px>=g.padding&&g.px<=g.targetWidth-g.padding);assert.ok(g.py>=g.padding&&g.py<=g.targetHeight-g.padding);const originalX=g.sx+(g.px-g.padding)*g.sw/(g.targetWidth-2*g.padding),originalY=g.sy+(g.py-g.padding)*g.sh/(g.targetHeight-2*g.padding);assert.ok(Math.abs(originalX/2600-x)<1e-10);assert.ok(Math.abs(originalY/1800-y)<1e-10);}});
 
 test('PDF-only manual send never authorises original-photo cleanup',()=>{const b={kind:'batch',status:'prepared',downloadedAt:'2026-11-02',includesOriginals:false} as any;const sent=markManualSent(b,true);assert.equal(sent.status,'manual-sent');assert.equal(sent.backupConfirmedAt,undefined);assert.match(retentionText(sent),/Original photos retained/);});
+
+import {photoRowCount,proportionalFit,evidencePhotoHeight} from '../source/lib/report-layout';
+import {makeReport} from '../source/lib/pdf';
+import {PDFDocument} from 'pdf-lib';
+test('photo evidence is arranged in 2-column rows and proportional fit never crops or skews',()=>{
+ assert.equal(photoRowCount(2),1);assert.equal(photoRowCount(3),2);assert.equal(photoRowCount(5),3);
+ const fit=proportionalFit(945,2048,256,165);
+ assert.ok(fit.height<=165&&fit.width<=256);
+ assert.ok(Math.abs(fit.width/fit.height-945/2048)<.00001);
+ const landscape=proportionalFit(2400,1200,256,165);assert.equal(landscape.width,256);assert.equal(landscape.height,128);
+ assert.ok(evidencePhotoHeight(522,132,2)>=110);
+});
+test('real PDF generator fits two checks and two photos on one A4 and overflows extra photos',{timeout:15000},async()=>{
+ const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAABICAIAAACyfKYoAAAAc0lEQVR42u3QMQEAAAgDILV/55liH0Rgkwx9p0C0aESLFo1o0YgWLRrRohEtWjSiRSNatGhEi0a0aNGIFo1o0aIRLRrRokUjWjSiRYtGtGhEixaNaNGIFi0a0aIRLVo0okUjWrRoRItGtGjRiBaNaNGiaXloqgONOLflLQAAAABJRU5ErkJggg==';
+ const photograph=Buffer.from(png.split(',')[1],'base64');
+ const oldFetch=globalThis.fetch,oldDocument=(globalThis as any).document;
+ const canvas=()=>({width:2400,height:1600,getContext:()=>({
+  fillRect(){},drawImage(){},beginPath(){},arc(){},fill(){},stroke(){},measureText(s:string){return {width:s.length*7}},fillText(){},lineWidth:1,fillStyle:'',strokeStyle:'',font:''
+ }),toDataURL:()=>png});
+ (globalThis as any).document={createElement:(tag:string)=>{assert.equal(tag,'canvas');return canvas();}};
+ globalThis.fetch=async(url:any)=>String(url).includes('branding/')?new Response('',{status:404}):new Response(photograph,{status:200,headers:{'content-type':'image/png'}});
+ try{
+  const drawing={id:'d',reference:'A-103',revision:'C1',page:1,fileId:'drawing',floor:'MO1',floorName:'Mezzanine'} as any;
+  const base={...sample(),stage:stages[0],date:'2026-11-02',reference:'QI-SAMPLE',location:'Mezzanine - grid K-L / 11',
+   drawingSnapshot:{name:'Mezzanine',reference:'A-103',revision:'C1',page:1},
+   answers:questions('IWL-1',stages[0]).map(q=>({...q,answer:q.expected,result:'Pass'})),
+   photos:[{id:'a',name:'a.jpg',caption:'',questionId:'tracks'},{id:'b',name:'b.jpg',caption:'',questionId:'metal-frame'}],
+   comments:'',specification:'Current drawing',approvalRef:'',createdAt:'2026-11-02T10:00:00Z',updatedAt:'2026-11-02T10:00:00Z',version:1
+  } as any;
+  const settings={inspector:'Goga',reportingCompany:'ACL',name:'ASTA'} as any,project={name:'NEOS - Haymarket House'} as any;
+  const urlFor=(id:string)=>'https://fixture.example.test/'+id;
+  const render=async()=>({canvas:canvas() as any,count:1});
+  const pdf=await makeReport(base,drawing,settings,urlFor,project,render);
+  const first=await PDFDocument.load(await pdf.arrayBuffer());
+  assert.equal(first.getPageCount(),1,'one normal inspection must fit one A4');
+  const multiple={...base,photos:Array.from({length:9},(_,n)=>({id:'pic-'+n,name:'original-'+n+'.jpg',caption:'',questionId:n<5?'tracks':'metal-frame'}))};
+  const overflowing=await makeReport(multiple,drawing,settings,urlFor,project,render);
+  const second=await PDFDocument.load(await overflowing.arrayBuffer());
+  assert.ok(second.getPageCount()>=2,'additional evidence must continue to another page');
+ }finally{globalThis.fetch=oldFetch;(globalThis as any).document=oldDocument;}
+});
