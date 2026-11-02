@@ -62,13 +62,13 @@ test('photo evidence is arranged in 2-column rows and proportional fit never cro
 });
 test('real PDF generator fits two checks with two portrait photos on one A4 and overflows extra photos',async()=>{
  const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAABICAIAAACyfKYoAAAAc0lEQVR42u3QMQEAAAgDILV/55liH0Rgkwx9p0C0aESLFo1o0YgWLRrRohEtWjSiRSNatGhEi0a0aNGIFo1o0aIRLRrRokUjWjSiRYtGtGhEixaNaNGIFi0a0aIRLVo0okUjWrRoRItGtGjRiBaNaNGiaXloqgONOLflLQAAAABJRU5ErkJggg==';
- const jpeg=Buffer.from('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCADDAFoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAj/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFAEBAAAAAAAAAAAAAAAAAAAAAP/EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEDEQA/ALLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB//9k=','base64');
+ const photograph=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAFoAAADDCAIAAACNo5HeAAAA+klEQVR42u3QMREAAAgEILV/53eyhAcR6CTFGQU6dOjQoUOHDh06dOjQoUOHDh06dOhAhw4dOnTo0KFDhw4dOnTo0KFDhw4dOtChQ4cOHTp06NChQ4cOHTp06NChQ4cOdOjQoUOHDh06dOjQoUOHDh06dOjQoUOHDh06dOjQoUOHDh06dOjQoUOHDh06dOjQoQMdOnTo0KFDhw4dOnTo0KFDhw4dOnToQIcOHTp06NChQ4cOHTp06NChQ4cOHTp06NChQ4cOHTrQoUOHDh06dOjQoUOHDh06dOjQoUMHOnTo0KFDhw4dOnTo0KFDhw4dOnTo0IEOHTp06NChQ4cOHTp06NChQ4cOHTp0oEOHDh06dOjQoUOHDh06dOh4YgEOnASDPLvlSgAAAABJRU5ErkJggg==','base64');
  const oldFetch=globalThis.fetch,oldDocument=(globalThis as any).document;
  const canvas=()=>({width:2400,height:1600,getContext:()=>({
   fillRect(){},drawImage(){},beginPath(){},arc(){},fill(){},stroke(){},measureText(s:string){return {width:s.length*7}},fillText(){},lineWidth:1,fillStyle:'',strokeStyle:'',font:''
  }),toDataURL:()=>png});
  (globalThis as any).document={createElement:(tag:string)=>{assert.equal(tag,'canvas');return canvas();}};
- globalThis.fetch=async(url:any)=>String(url).includes('branding/')?new Response('',{status:404}):new Response(jpeg,{status:200,headers:{'content-type':'image/jpeg'}});
+ globalThis.fetch=async(url:any)=>String(url).includes('branding/')?new Response('',{status:404}):new Response(photograph,{status:200,headers:{'content-type':'image/png'}});
  try{
   const drawing={id:'d',reference:'A-103',revision:'C1',page:1,fileId:'drawing',floor:'MO1',floorName:'Mezzanine'} as any;
   const base={...sample(),stage:stages[0],date:'2026-11-02',reference:'QI-SAMPLE',location:'Mezzanine - grid K-L / 11',
