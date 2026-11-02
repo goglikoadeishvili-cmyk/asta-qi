@@ -19,7 +19,7 @@ function legacyStageQuestion(wallId:string,stage:string):Answer[]{
  }else if((stage===stages[0]||stage==='Framing & isolation')){
   question='Has the metal framing been installed in accordance with the drawing?';
   const profile=wallId==='IWL-1'?'148 mm U floor/head channels and 146 mm I-studs at 600 mm centres':wallId==='IWL-2'?'94 mm U floor/head channels and 92 mm I-studs at 600 mm centres':wallId==='IWL-3'?'the specified Stravilink furring channels and QCR acoustic reveal isolation, with fixing positions to the approved local detail':wallId==='IWS-1'?'the 92 mm I-stud framing shown in the C1 legend, with track type and stud centres confirmed by the approved design reference':'the 92 mm I-stud shaftwall framing shown in the C1 legend, with track type and stud centres confirmed by the approved shaftwall detail';
-  expected=`Metal framing for ${wallId} has been installed at the marked location in accordance with the drawing and referenced system details, using ${profile}. Tracks have been aligned and securely fixed to the substrate; studs are plumb and correctly seated. The head deflection allowance, abutments and acoustic isolation have been checked against the approved detail. This record covers the metal framing inspection stage.`;
+  expected=`${wallId}: ${profile}. Framing is plumb, aligned and securely fixed in accordance with the drawing and applicable guidance recommendations.`;
  }else if(stage===stages[1]){
   question='Has the insulation and first-fix work been installed in accordance with the drawing?';
   const wool=wallId==='IWL-1'||wallId==='IWL-2'?'the specified 100 mm acoustic insulation':wallId==='IWS-1'?'the 100 mm acoustic insulation shown in the C1 legend and confirmed by the approved IWS-1 design':wallId==='IWS-2'?'the 25 mm acoustic insulation shown in the C1 shaftwall legend and confirmed by the approved system':'the insulation arrangement stated in the approved reveal detail (the supplied IWL-3 specification does not give a thickness)';
@@ -44,16 +44,16 @@ export function questions(wallId:string,stage:string,profile:'neos'|'generic'='n
  }
  const w=wallTypes.find(w=>w.id===wallId);if(!w)return [];
  if(wallId==='BLK-1')return legacyStageQuestion(wallId,stage).map(q=>({...q,id:'block-'+stage.replace(/\W+/g,'-'),section:stage}));
- if(metal){const frame=legacyStageQuestion(wallId,stages[0])[0];return [make('tracks','Are the top and bottom tracks, isolation strips and two FireLine layers installed as shown on the drawing?',`Yes. The bottom track is installed with two blue CineWALL LITE layers, each 12.5 mm thick (25 mm total), and the top track with one black CineWALL PRO layer, 12.5 mm thick. Two layers of FireLine plasterboard strips are fitted at the head track. Tracks, isolation strips, fixings and head detail have been inspected at this location and are installed in accordance with the current drawing and applicable requirements.`, 'Current project drawing and approved details.'),{...frame,id:'metal-frame',section:stage}];}
+ if(metal){const frame=legacyStageQuestion(wallId,stages[0])[0];return [make('tracks','Are the top and bottom tracks installed correctly?',`Bottom track: 2 × 12.5 mm blue CineWALL LITE (25 mm total). Top track: 1 × 12.5 mm black CineWALL PRO and 2 layers of FireLine strips. Installed and securely fixed in accordance with the drawing and applicable guidance recommendations.`, 'Current project drawing.'),{...frame,id:'metal-frame',section:stage}];}
  if(boarding)return [
- make('pre-board-plate','Is the flat plate securely fixed to the metal framing before boarding?',`Yes. The flat plate is installed and securely fixed to the metal framing in accordance with the current drawing and applicable requirements. Its position, fixing and support for the plasterboard have been inspected before boarding.`, 'Current project drawing and approved details.'),
- make('boarding','Are the plasterboard layers, fixings and stagger installed as shown on the drawing?',`Yes. The installed ${wallId} plasterboard build-up is ${w.build} Board layers, joint stagger, fixings and perimeter seals have been inspected and comply with the current drawing and applicable requirements.`, 'Current project drawing and approved details.'),
- make('final-plate','Is the required flat plate / backing for the final plasterboard layer securely fixed?',`Yes. The required flat plate / backing for the final plasterboard layer is in place and securely fixed in accordance with the current drawing and applicable requirements. Joint support has been inspected and photographed before concealment.`, 'Current project drawing and approved details.')
+ make('pre-board-plate','Is the flat plate securely fixed to the metal framing before boarding?',`The flat plate is securely fixed to the metal framing in accordance with the drawing and applicable guidance recommendations.`, 'Current project drawing and approved details.'),
+ make('boarding','Are the plasterboard layers, fixings and stagger installed as shown on the drawing?',`${wallId}: ${w.build} Layers, joint stagger, fixings and seals comply with the drawing and applicable guidance recommendations.`, 'Current project drawing and approved details.'),
+ make('final-plate','Is the required flat plate / backing for the final plasterboard layer securely fixed?',`The required backing / flat plate for the final board layer is securely fixed in accordance with the drawing and applicable guidance recommendations.`, 'Current project drawing and approved details.')
  ];
  return legacyStageQuestion(wallId,stage).map(q=>({...q,id:stage===stages[1]?'insulation':'final-check',section:stage}));
 }
 export const answerOptions=(q:Answer)=>[
- {label:'Yes — use prepared answer',text:q.expected,result:'Pass' as const},
- {label:'Defect / incomplete work',text:'The work at the marked location is incomplete or does not match the drawing / approved detail. The defect, required corrective action and supporting photographs are recorded below.',result:'Fail' as const},
- {label:'Not inspected yet',text:'This stage has not yet been verified at the marked location. The inspection remains pending.',result:'Pending' as const}
+ {label:'Yes',text:q.expected,result:'Pass' as const},
+ {label:'Defect / incomplete work',text:'Work does not match the drawing. Defect and corrective action recorded below.',result:'Fail' as const},
+ {label:'Not inspected yet',text:'Not yet inspected.',result:'Pending' as const}
 ];
