@@ -23,7 +23,8 @@ export default function App(){
  const [clock,Clock]=useState(Date.now()),[projectId,ProjectId]=useState<string|null>(null),[activeDrawingId,D]=useState<string|null>(null);
  const editing=useRef(false);editing.current=modal?.type==='inspection';
  const urls=useRef<Record<string,string>>({}),importInput=useRef<HTMLInputElement>(null),pdfInput=useRef<HTMLInputElement>(null),channel=useRef<BroadcastChannel|null>(null),running=useRef(false);
- const settings=(records.find(r=>r.kind==='settings')||initialSettings) as Settings;
+ const savedSettings=records.find((r):r is Settings=>r.kind==='settings');
+ const settings:Settings={...initialSettings,...savedSettings,gmailClientId:savedSettings?.gmailClientId?.trim()||initialSettings.gmailClientId};
  const projects=records.filter((r):r is Project=>r.kind==='project');
  const project=projects.find(p=>p.id===projectId);
  const drawings=records.filter((r):r is Drawing=>r.kind==='drawing'&&projectOf(r)===projectId);

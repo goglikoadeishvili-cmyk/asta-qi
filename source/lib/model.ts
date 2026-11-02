@@ -14,7 +14,7 @@ export interface Batch{id:string;kind:'batch';projectId?:string;createdAt:string
 export interface Settings{id:'settings';kind:'settings';name:string;inspector:string;recipient:string;emailEndpoint:string;emailToken:string;gmailClientId?:string;senderEmail?:string;reportingCompany?:string;preparedFor?:string}
 export type RecordItem=Drawing|Inspection|Batch|Settings|Project;
 export const floors=[{id:'OB1',name:'Oxendon Basement',detail:'OB1',page:1,reference:'TIG-RYD-00-00-DDR-A-10-0099'},{id:'GF',name:'Ground Floor',detail:'GF1 / GF3',page:2,reference:'TIG-RYD-00-00-DDR-A-10-0102'},{id:'MO1',name:'Mezzanine',detail:'MO1',page:3,reference:'TIG-RYD-00-00-DDR-A-10-0103'}] as const;
-export const initialSettings:Settings={id:'settings',kind:'settings',name:'ASTA CONSTUCTION',inspector:'Goga',recipient:'',emailEndpoint:'',emailToken:'',gmailClientId:'',senderEmail:'goglikoadeishvili@gmail.com',reportingCompany:'ACL',preparedFor:''};
+export const initialSettings:Settings={id:'settings',kind:'settings',name:'ASTA CONSTUCTION',inspector:'Goga',recipient:'',emailEndpoint:'',emailToken:'',gmailClientId:'454681087002-nd38egluu2gq8io2rfkc80gr1uf95af2.apps.googleusercontent.com',senderEmail:'goglikoadeishvili@gmail.com',reportingCompany:'ACL',preparedFor:''};
 export const uid=()=>crypto.randomUUID();
 export const now=()=>new Date().toISOString();
 export const today=()=>new Date().toLocaleDateString('en-CA');
