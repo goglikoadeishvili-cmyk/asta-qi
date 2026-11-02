@@ -28,7 +28,7 @@ export function validateInspection(i:Inspection,draft=false){
  if(!i.photos.length)throw new Error('Add at least one evidence photo, or save a draft.');
  const checks=allInspectionAnswers(i);
  if(i.status==='Pass'&&(!checks.length||checks.some(a=>a.result!=='Pass'||!a.answer.trim())))throw new Error('Choose the prepared answer or enter your inspection answer before saving as Pass.');
- if(i.templateVersion===2&&i.status==='Pass'){for(const a of checks){if(!i.photos.some(p=>p.questionId===a.id))throw new Error('Add a site evidence photo for each question before passing. Reference illustrations are not site evidence.');if(a.requiresHeadMeasurement&&(!a.headOffsetMm?.trim()||!Number.isFinite(Number(a.headOffsetMm))||Number(a.headOffsetMm)<0||!a.detailReference?.trim()))throw new Error('Record the measured flat-plate distance below the head track and the approved detail reference. The supplied documents do not state this distance.');}}
+ if(i.templateVersion===2&&i.status==='Pass'){for(const a of checks){if(!i.photos.some(p=>p.questionId===a.id))throw new Error('Add a site evidence photo for each question before passing.');}}
  if(i.status==='Pass'&&i.qaProfile!=='generic'&&['IWS-1','IWS-2'].includes(i.wallType)&&(!i.approvalRef.trim()||!i.approvedBuildUp.trim()))throw new Error('Record the approved design/RFI reference and confirmed build-up for this wall type.');
  if(i.status==='Pass'&&checks.some(a=>a.result==='Fail'))throw new Error('Resolve failed checks before passing.');
  if(i.status==='Fail'&&(!i.defects.trim()||!i.corrective.trim()))throw new Error('Describe the defect and corrective action.');
