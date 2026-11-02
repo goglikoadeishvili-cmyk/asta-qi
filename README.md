@@ -1,14 +1,14 @@
 # ASTA CONSTUCTION · GOGA Dryliner QI
 
-Personal, mobile-first drylining QA for the NEOS / Haymarket project. The public application source and app shell contain **no uploaded project PDFs, inspection records, original photos, recipient addresses or service credentials**.
+Personal, mobile-first drylining QA for the NEOS / Haymarket project. The user-authorised three-floor C1 wall-plan PDF is included with the public application. It is publicly downloadable. Other project PDFs, inspection records, original photos, recipient addresses and credentials are not published.
 
 Live application: https://goglikoadeishvili-cmyk.github.io/asta-qi/
 
 ## Current working workflow
 
 1. Choose **Oxendon Basement OB1**, **Ground Floor GF1/GF3**, or **Mezzanine MO1**.
-2. Import the private `ASTA-NEOS-Project.asta` pack supplied separately, or upload `Internal Wall Lay-outs - rev.C1-021126(1).pdf` to link its three pages to the three floors. The pack is a ZIP-format project archive, not a program to run.
-3. Open the drawing, tap **Place pin**, then the inspection location.
+2. The three-floor C1 drawing loads automatically. There is no manual import step. The app saves it once to local storage for subsequent use. Optional private project-pack import in Settings adds supporting reference documents.
+3. The selected floor's page opens in pin-placement mode. Tap the inspection location, adjust the temporary NEW pin if needed, then press **DONE**. The inspection form opens only after DONE.
 4. Choose IWL-1, IWL-2, IWL-3, IWS-1, IWS-2 or BLK-1; see the build-up and source notes.
 5. Choose inspection stage, answer specification questions using prepared editable answers, record observed measurements and any approved design/RFI reference.
 6. Take/upload photos. Original bytes are saved separately from 2400px quality-93 JPEG report copies. Caption evidence, select Pass/Fail/Pending and save; drafts are supported.
@@ -20,7 +20,7 @@ PDFs contain branded headers, inspector, creation/update timestamps, version, fl
 
 ## Storage and privacy
 
-IndexedDB stores records and file blobs on the **current device/browser origin**. SHA-256 deduplicates exact file uploads. Data survives refresh and normal browser restarts, but this is not shared cloud storage or an authenticated multi-user service. The user requested a personal app. No team or invitation controls are present.
+IndexedDB stores records and file blobs on the **current device/browser origin**. SHA-256 deduplicates exact file uploads. Data survives refresh and normal browser restarts, but this is not shared cloud storage or an authenticated multi-user service. The user requested a personal app. No team or invitation controls are present. Only the explicitly included C1 drawing is a public asset; personal evidence remains local.
 
 Use Settings → Download full backup regularly. Importing a backup adds missing records and preserves existing records with the same ID, so it is not a concurrent multi-device merge/sync service. The email access token is deliberately excluded from backups. Project packs and backups are unencrypted private files: keep them in a trusted location, not a public repository. Browser storage can be cleared or evicted; persistent-storage permission is best effort. Storage usage and browser quota are displayed. There is no automatic evidence deletion or retention purge.
 
@@ -50,7 +50,7 @@ PAGES_BASE_PATH=/asta-qi/ npm run build
 npm run publish:assets
 ```
 
-`postinstall` copies the PDF.js worker into `source/public`. The Vite build creates `site-build`; publish:assets copies its outputs to the repository root and creates a versioned offline app-shell service worker. Commit both source and ready root assets. Do not commit `node_modules`, project packs, photos, PDFs, backups or secrets. For a different repository slug, set `PAGES_BASE_PATH=/your-slug/` at build time.
+`postinstall` copies the PDF.js worker into `source/public`. The Vite build creates `site-build`; publish:assets copies its outputs to the repository root and creates a versioned offline app-shell service worker. Commit both source and ready root assets. Do not commit `node_modules`, private project packs, photos, other PDFs, backups or secrets. The .gitignore permits only the explicitly authorised built-in C1 PDF under source/public/drawings and drawings. For a different repository slug, set `PAGES_BASE_PATH=/your-slug/` at build time.
 
 Public source is in `source/`. Root HTML/assets are the compiled deployable app. Tests cover checklist gates, pin validity, exactly one email/ZIP for multiple PDFs, provider rejection/uncertainty, duplicate request handling and secure-link mode using mocks; they do not claim real email delivery.
 
