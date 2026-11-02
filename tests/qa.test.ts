@@ -60,7 +60,7 @@ test('photo evidence is arranged in 2-column rows and proportional fit never cro
  const landscape=proportionalFit(2400,1200,256,165);assert.equal(landscape.width,256);assert.equal(landscape.height,128);
  assert.ok(evidencePhotoHeight(522,132,2)>=110);
 });
-test('real PDF generator fits two checks with two portrait photos on one A4 and overflows extra photos',async()=>{
+test('real PDF generator fits two checks with two portrait photos on one A4 and overflows extra photos',{timeout:15000},async()=>{
  const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAABICAIAAACyfKYoAAAAc0lEQVR42u3QMQEAAAgDILV/55liH0Rgkwx9p0C0aESLFo1o0YgWLRrRohEtWjSiRSNatGhEi0a0aNGIFo1o0aIRLRrRokUjWjSiRYtGtGhEixaNaNGIFi0a0aIRLVo0okUjWrRoRItGtGjRiBaNaNGiaXloqgONOLflLQAAAABJRU5ErkJggg==';
  const photograph=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAFoAAADDCAIAAACNo5HeAAAA+klEQVR42u3QMREAAAgEILV/53eyhAcR6CTFGQU6dOjQoUOHDh06dOjQoUOHDh06dOhAhw4dOnTo0KFDhw4dOnTo0KFDhw4dOtChQ4cOHTp06NChQ4cOHTp06NChQ4cOdOjQoUOHDh06dOjQoUOHDh06dOjQoUOHDh06dOjQoUOHDh06dOjQoUOHDh06dOjQoQMdOnTo0KFDhw4dOnTo0KFDhw4dOnToQIcOHTp06NChQ4cOHTp06NChQ4cOHTp06NChQ4cOHTrQoUOHDh06dOjQoUOHDh06dOjQoUMHOnTo0KFDhw4dOnTo0KFDhw4dOnTo0IEOHTp06NChQ4cOHTp06NChQ4cOHTp0oEOHDh06dOjQoUOHDh06dOh4YgEOnASDPLvlSgAAAABJRU5ErkJggg==','base64');
  const oldFetch=globalThis.fetch,oldDocument=(globalThis as any).document;
@@ -80,10 +80,12 @@ test('real PDF generator fits two checks with two portrait photos on one A4 and 
   const settings={inspector:'Goga',reportingCompany:'ACL',name:'ASTA'} as any,project={name:'NEOS - Haymarket House'} as any;
   const urlFor=(id:string)=>'https://fixture.example.test/'+id;
   const render=async()=>({canvas:canvas() as any,count:1});
+  console.log('PDF smoke: creating normal report');
   const pdf=await makeReport(base,drawing,settings,urlFor,project,render);
   const first=await PDFDocument.load(await pdf.arrayBuffer());
   assert.equal(first.getPageCount(),1,'one normal inspection must fit one A4');
   const multiple={...base,photos:Array.from({length:9},(_,n)=>({id:'pic-'+n,name:'original-'+n+'.jpg',caption:'',questionId:n<5?'tracks':'metal-frame'}))};
+  console.log('PDF smoke: creating multi-photo report');
   const overflowing=await makeReport(multiple,drawing,settings,urlFor,project,render);
   const second=await PDFDocument.load(await overflowing.arrayBuffer());
   assert.ok(second.getPageCount()>=2,'additional evidence must continue to another page');
