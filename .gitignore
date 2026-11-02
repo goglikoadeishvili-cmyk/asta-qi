@@ -2,3 +2,11 @@
 /site-build/
 /source/public/pdf.worker.min.mjs
 *.tsbuildinfo
+/email-gateway/.dev.vars
+*.asta
+*.pdf
+*.xlsx
+*.zip
+/email-gateway/.wrangler/
+
+/.test-build/

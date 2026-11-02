@@ -1,0 +1,8 @@
+{
+ "name":"asta-personal-qa-email",
+ "main":"worker.ts",
+ "compatibility_date":"2026-11-02",
+ "vars":{"APP_ORIGIN":"https://goglikoadeishvili-cmyk.github.io","ATTACHMENT_LIMIT_MB":"10","MAX_REQUEST_MB":"35"},
+ "d1_databases":[{"binding":"DB","database_name":"asta-qa-email","database_id":"REPLACE_WITH_CREATED_DATABASE_ID"}],
+ "r2_buckets":[{"binding":"REPORTS","bucket_name":"asta-qa-report-links"}]
+}

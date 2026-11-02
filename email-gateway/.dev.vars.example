@@ -1,0 +1,4 @@
+# Examples only. Use wrangler secret put for deployed secrets.
+PERSONAL_TOKEN=REPLACE_WITH_A_RANDOM_TOKEN_AT_LEAST_32_CHARACTERS
+RESEND_API_KEY=REPLACE_WITH_PROVIDER_SECRET
+EMAIL_FROM=ASTA QA <qa@your-verified-domain.example>
