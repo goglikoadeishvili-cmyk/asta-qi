@@ -1,4 +1,4 @@
-# ASTA CONSTUCTION · GOGA Dryliner QI
+# ASTA CONSTUCTION · Goga quality inspection
 
 Personal, mobile-first drylining QA for the NEOS / Haymarket project. The user-authorised three-floor C1 wall-plan PDF is included with the public application. It is publicly downloadable. Other project PDFs, inspection records, original photos, recipient addresses and credentials are not published.
 
@@ -79,3 +79,9 @@ The gateway limits requests to 35MB, 20 PDF files, STORE-only app-generated ZIPs
 D1 uniqueness/compare-and-update locks plus provider idempotency protect retries. Exact payload identity is enforced: changing a previously submitted recipient/subject/body requires a new batch. `accepted` means the provider returned an ID, **not recipient delivery**. Network uncertainty stays unknown and blocks blind retries; Check server status can recover a recorded provider confirmation without sending a new email. If the provider accepted but persistence failed, inspect its dashboard. There is no delivery webhook or automatic evidence purge. Old PDF snapshots and original evidence remain local.
 
 Provider references checked when implementing: https://resend.com/docs/api-reference/emails/send-email and https://resend.com/docs/dashboard/emails/idempotency-keys ; R2: https://developers.cloudflare.com/r2/api/workers/workers-api-reference/ .
+
+## Branding and installed app updates
+
+The supplied ACL logo was refined with the built-in image tool, then optimised for the header, PDF report header and maskable installation icons. The displayed subtitle is **Goga quality inspection**.
+
+Reinstalling is not required for normal app updates. The same website origin and IndexedDB database are retained. The app checks for service-worker updates when opened, focused or reconnected and shows an Update app notice after an updated worker takes control. The notice never automatically reloads the page and is disabled while a form or operation is open. Save edits before updating. Settings also includes Check for app updates. Close/reopen while online to load updated code. Previous app cache is retained during transition; no inspection or photo database is deleted. Installed icon refresh timing depends on the browser/OS, especially existing iPhone home-screen shortcuts. Never clear website storage to update; keep regular full backups.
