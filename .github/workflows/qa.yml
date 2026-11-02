@@ -1,0 +1,30 @@
+name: ASTA QI quality checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches:
+      - 'fix/**'
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Check types
+        run: npm run check
+      - name: Run tests
+        run: npm test
+      - name: Build deployable site
+        run: PAGES_BASE_PATH=/asta-qi/ npm run build
+      - name: Verify publish output
+        run: npm run publish:assets
