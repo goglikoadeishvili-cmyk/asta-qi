@@ -77,7 +77,6 @@ export async function makeReport(i:Inspection,drawing:Drawing,settings:Settings,
   const lines=wrap(value,8,Math.max(60,maxWidth-px));
   await drawText(lines[0],x+px,yy,8,false,ink);
  }
- console.log('PDF debug: header');
  startPage();
  await drawText(title,L,759,18,true);
  await drawText(reference,L,738,9,true,muted);
@@ -89,7 +88,6 @@ export async function makeReport(i:Inspection,drawing:Drawing,settings:Settings,
  await drawCompactLabel('Date',i.date,378,701,176);
  await drawCompactLabel('Location',i.location,L,683,520);
  // A compact marked drawing comes before every question, without any full-sheet drawing.
- console.log('PDF debug: metadata done');
  const {canvas:source}=await render(urlFor(drawing.fileId),i.pin.page);
  const g=excerptGeometry(source.width,source.height,i.pin),crop=document.createElement('canvas');
  crop.width=g.targetWidth;crop.height=g.targetHeight;
@@ -98,9 +96,7 @@ export async function makeReport(i:Inspection,drawing:Drawing,settings:Settings,
  ctx.fillStyle='#db2948';ctx.beginPath();ctx.arc(g.px,g.py,19,0,Math.PI*2);ctx.fill();
  ctx.strokeStyle='white';ctx.lineWidth=5;ctx.stroke();
  ctx.beginPath();ctx.arc(g.px,g.py,5,0,Math.PI*2);ctx.fillStyle='white';ctx.fill();
- console.log('PDF debug: crop ready');
  const excerpt=await doc.embedPng(crop.toDataURL());
- console.log('PDF debug: excerpt embedded');
  await drawText('DRAWING - MARKED INSPECTION POSITION',L,665,9,true,blue);
  const drawingWidth=218,drawingHeight=drawingWidth*excerpt.height/excerpt.width,top=653;
  page.drawImage(excerpt,{x:L,y:top-drawingHeight,width:drawingWidth,height:drawingHeight});
@@ -113,7 +109,6 @@ export async function makeReport(i:Inspection,drawing:Drawing,settings:Settings,
  await drawText('Red pin: inspection location',right,refY-20,7.5,false,muted);
  y=top-drawingHeight-15;
  page.drawLine({start:{x:L,y:y+6},end:{x:W-L,y:y+6},thickness:.8,color:rule});
- console.log('PDF debug: drawing done');
  const checks=reportInspectionAnswers(i);
  const photosFor=(questionId:string)=>i.photos.filter(p=>p.questionId===questionId);
  type Picture={photo:Inspection['photos'][number];image:any};
@@ -123,10 +118,11 @@ export async function makeReport(i:Inspection,drawing:Drawing,settings:Settings,
   if(!url)throw new Error('Photo evidence is missing. Restore the original evidence backup.');
   const response=await fetch(url);if(!response.ok)throw new Error('Photo evidence could not be loaded.');
   const bytes=await response.arrayBuffer();
-  let image:any;try{image=await doc.embedJpg(bytes)}catch{image=await doc.embedPng(bytes)}
+  const signature=new Uint8Array(bytes),jpeg=signature[0]===0xff&&signature[1]===0xd8,png=signature[0]===0x89&&signature[1]===0x50&&signature[2]===0x4e&&signature[3]===0x47;
+  if(!jpeg&&!png)throw new Error('Unsupported photo format; use JPEG or PNG evidence.');
+  const image:any=jpeg?await doc.embedJpg(bytes):await doc.embedPng(bytes);
   images.set(p.id,{photo:p,image});
  }
- console.log('PDF debug: photos embedded',images.size);
  const extra=i.photos.filter(p=>!p.questionId||!checks.some(a=>a.id===p.questionId));
  const groups=checks.map(a=>({answer:a,photos:photosFor(a.id)}));
  if(extra.length)groups.push({answer:null as any,photos:extra});
@@ -161,8 +157,7 @@ export async function makeReport(i:Inspection,drawing:Drawing,settings:Settings,
   }
   y=photoTop-5-tallest-9;
  }
- console.log('PDF debug: groups prepared',groups.length,y);
- for(let n=0;n<groups.length;n++){console.log('PDF debug: group',n,y);
+ for(let n=0;n<groups.length;n++){
   const group=groups[n],a=group.answer,groupPhotos=group.photos;
   if(a){
    const qLines=wrap((n+1)+'. '+a.question,9,CW-9,true),aLines=wrap(shortenBoilerplate(a.answer||'Not inspected.'),8.1,CW-9);
@@ -187,9 +182,6 @@ export async function makeReport(i:Inspection,drawing:Drawing,settings:Settings,
   for(const line of lines){await drawText(line,L,y,8,false,ink);y-=11;}y-=8;
  }
  // Only the continuation gets numbering; no repeated inspector/date/footer blocks.
- console.log('PDF debug: sections done',doc.getPageCount());
  if(doc.getPageCount()>1)doc.getPages().forEach((p,n)=>p.drawText((n+1)+' / '+doc.getPageCount(),{x:W-L-24,y:26,size:7,font,color:muted}));
- console.log('PDF debug: start save');
- const bytes=await doc.save();console.log('PDF debug: saved',bytes.length);
- return new Blob([bytes as BlobPart],{type:'application/pdf'});
+ return new Blob([await doc.save() as BlobPart],{type:'application/pdf'});
 }
