@@ -20,6 +20,8 @@ export const now=()=>new Date().toISOString();
 export const today=()=>new Date().toLocaleDateString('en-CA');
 export const formatDate=(s:string)=>new Date(s).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
 export function allInspectionAnswers(i:Pick<Inspection,'answers'|'sections'|'stage'>){return [...Object.entries(i.sections||{}).filter(([stage])=>stage!==i.stage).flatMap(([,answers])=>answers),...i.answers];}
+// A report documents the selected inspection stage, not earlier-stage history.
+export function reportInspectionAnswers(i:Pick<Inspection,'answers'|'sections'|'stage'>){return i.answers.length?i.answers:allInspectionAnswers(i);}
 export function validateInspection(i:Inspection,draft=false){
  if(!i.floor?.trim()||!i.drawingId||!Number.isInteger(i.pin?.page)||i.pin.page<1||![i.pin?.x,i.pin?.y].every(v=>Number.isFinite(v)&&v>=0&&v<=1))throw new Error('Choose a floor, drawing and valid pin location.');
  if(!i.wallType)throw new Error('Choose a wall type.');
