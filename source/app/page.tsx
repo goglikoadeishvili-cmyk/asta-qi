@@ -40,7 +40,7 @@ export default function App(){
  useEffect(()=>{B('Loading included floor drawings');refresh().then(()=>ensureIncludedDrawings()).then(()=>refresh()).catch(e=>N(e.message||'Could not load included drawings. Reconnect and reload.')).finally(()=>{Ready(true);B('')});if('BroadcastChannel' in window){channel.current=new BroadcastChannel('asta-qa-updates');channel.current.onmessage=()=>refresh();}return()=>{channel.current?.close();Object.values(urls.current).forEach(URL.revokeObjectURL)};},[]);
  useEffect(()=>{const timer=setInterval(()=>{Clock(Date.now());if(!running.current)refresh().catch(()=>{});},60000);return()=>clearInterval(timer);},[]);
  async function run(label:string,fn:()=>Promise<any>){if(running.current)return;running.current=true;B(label);N('');try{await fn()}catch(e:any){N(e.message||'The operation failed. Your saved records are unchanged.')}finally{running.current=false;B('');}}
- async function save(r:RecordItem){await putRecord(r);await refresh();channel.current?.postMessage('refresh');}
+ async function save(r:RecordItem){await putRecord(r);await refresh();channel.current?.postMessage('refresh');window.dispatchEvent(new Event('asta-local-changed'));}
  async function upload(blob:Blob,name:string){const f=await storeFile(blob,name);if(!urls.current[f.id])urls.current[f.id]=URL.createObjectURL(blob);return f;}
  function selectProject(p:Project){ProjectId(p.id);F(null);D(null);Sel([]);Ref(null);S('');St('All');V('Inspections');if(!records.some(r=>r.kind==='drawing'&&projectOf(r)===p.id&&r.active))M({type:'upload-prompt'});}
  function openDrawing(d:Drawing){D(d.id);F(d.floor);Ref(null);V('Drawing');S('');St('All');}
