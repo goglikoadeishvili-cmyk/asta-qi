@@ -80,12 +80,10 @@ test('real PDF generator fits two checks and two photos on one A4 and overflows 
   const settings={inspector:'Goga',reportingCompany:'ACL',name:'ASTA'} as any,project={name:'NEOS - Haymarket House'} as any;
   const urlFor=(id:string)=>'https://fixture.example.test/'+id;
   const render=async()=>({canvas:canvas() as any,count:1});
-  console.log('PDF smoke: creating normal report');
   const pdf=await makeReport(base,drawing,settings,urlFor,project,render);
   const first=await PDFDocument.load(await pdf.arrayBuffer());
   assert.equal(first.getPageCount(),1,'one normal inspection must fit one A4');
   const multiple={...base,photos:Array.from({length:9},(_,n)=>({id:'pic-'+n,name:'original-'+n+'.jpg',caption:'',questionId:n<5?'tracks':'metal-frame'}))};
-  console.log('PDF smoke: creating multi-photo report');
   const overflowing=await makeReport(multiple,drawing,settings,urlFor,project,render);
   const second=await PDFDocument.load(await overflowing.arrayBuffer());
   assert.ok(second.getPageCount()>=2,'additional evidence must continue to another page');
