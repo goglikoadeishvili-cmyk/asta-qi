@@ -10,7 +10,7 @@ export const wallTypes=[
  {id:'IWS-2',title:'Shaftwall',colour:'#6865ee',build:'C1: 92 mm I-stud; 25 mm acoustic insulation; 3 x 15 mm plasterboard plus 1 x 30 mm coreboard.',detail:'C1 legend gives a 120 minute fire rating. The supplied P2 specification does not include a complete IWS-2 system section.',source:'C1 layout legend (all three pages).',issue:'Approved shaftwall system and installation details are required before Pass. Do not reuse the IWS-1 specification.'},
  {id:'BLK-1',title:'Dense blockwork',colour:'#a55bed',build:'140 mm dense blockwork; minimum density 1800 kg/m³.',detail:'Check blockwork interfaces and window infills before the lining is concealed.',source:'C1 layout legend / local drawing notes.',issue:'Record substrate handover and outstanding interface issues. Do not sign off hidden work by others without evidence.'}
 ];
-export function questions(wallId:string,stage:string):Answer[]{
+function legacyStageQuestion(wallId:string,stage:string):Answer[]{
  const w=wallTypes.find(x=>x.id===wallId);if(!w)return [];
  let question='',expected='';
  if(wallId==='BLK-1'){
@@ -33,8 +33,32 @@ export function questions(wallId:string,stage:string):Answer[]{
  }
  return [{id:'stage-summary',question,expected,source:w.source,answer:'',result:'Pending',comment:''}];
 }
+export const referenceImages=[
+ {id:'products',file:'isolation-products.jpg',title:'Reference: blue LITE and black PRO product colours',caption:'Email reference photo — product illustration, not evidence of installation.'},
+ {id:'head-base',file:'head-base-email-detail.jpg',title:'Reference: head and base isolation arrangement',caption:'Email extract: 12.5 mm black PRO at top; 12.5 mm blue LITE at base. Board fillets in the sketch are labelled Coreboard.'},
+ {id:'base-layers',file:'base-two-layer-confirmation.jpg',title:'Reference: two layers at the base',caption:'Email extract confirms 2 × 12.5 mm = 25 mm CineWALL LITE. Historical P03/P04 drawing references do not replace the current C1 layouts.'}
+];
+export function questions(wallId:string,stage:string,profile:'neos'|'generic'='neos',customSpec=''):Answer[]{
+ const make=(id:string,question:string,expected:string,source:string,extra:Partial<Answer>={}):Answer=>({id,question,section:stage,expected,source,answer:'',result:'Pending',comment:'',...extra});
+ const metal=stage===stages[0]||stage==='Framing & isolation';const boarding=stage===stages[2];
+ if(profile==='generic'){
+  const source='Selected project drawing / approved specification: '+customSpec;
+  if(metal)return [make('tracks','Have the head and base tracks and their specified interfaces been installed correctly?',`The head and base tracks at the marked location have been checked against this project's approved drawing and specification: ${customSpec}. Track type, fixings, any specified isolation layers and head detail have been verified. Actual products and dimensions are recorded in the notes.`,source),make('metal-frame','Has the metal framing been installed in accordance with this project drawing?',`The metal framing at the marked location has been checked against this project's approved drawing and specification: ${customSpec}. Stud and track types, stud centres, alignment and fixings have been verified. The actual measured centres are recorded in the notes.`,source)];
+  if(boarding)return [make('pre-board-plate','Is the specified backing / flat plate installed before boarding?',`The backing / flat plate locations have been checked against the approved project detail: ${customSpec}. Product, joint support and any head offset have been verified before concealment.`,source),make('boarding','Are the board layers, fixing and stagger correct?',`Board type, layer count, fixing centres and joint stagger have been checked against the approved detail for this project: ${customSpec}. Actual dimensions are recorded in notes.`,source),make('final-plate','Is the required backing to the final board layer in place?',`The final layer's joint support and any specified backing plates have been inspected and photographed before concealment, in accordance with the approved project detail: ${customSpec}.`,source)];
+  return [make('stage-'+stage.replace(/\W+/g,'-'),'Has this work stage been completed to the approved project detail?',`The ${stage.toLowerCase()} work at the marked pin has been checked against the approved project drawing and specification: ${customSpec}. The result, observed measurements and site photographs are recorded below.`,source)];
+ }
+ const w=wallTypes.find(w=>w.id===wallId);if(!w)return [];
+ if(wallId==='BLK-1')return legacyStageQuestion(wallId,stage).map(q=>({...q,id:'block-'+stage.replace(/\W+/g,'-'),section:stage}));
+ if(metal){const frame=legacyStageQuestion(wallId,stages[0])[0];return [make('tracks','Are the top and bottom tracks, acoustic isolation strips and head fillets installed as specified?',`The bottom track has been checked with two blue CineWALL LITE layers, each 12.5 mm thick (25 mm total), and the top track with one black CineWALL PRO layer, 12.5 mm thick, as described in the supplied project email. Strip width suits the selected track and fixings follow the accepted detail. The head track board fillets have been checked for the specified product, thickness, layer count and deflection allowance; the actual board product and governing detail are recorded in the notes. The email sketch labels 2 × 19 mm Knauf Coreboard; FireLine is not assumed equivalent without an accepted project detail.`, 'Project email screenshots supplied 2 Nov 2026; NEOS 80-0006 P02; P2 head detail. The 94 mm email strip width is not a universal width for every wall type.',{referenceIds:['products','head-base','base-layers']}),{...frame,id:'metal-frame',section:stage}];}
+ if(boarding)return [
+ make('pre-board-plate','Before boarding, is the specified flat fixing plate / strap installed at the correct position below the head track?',`The specified flat fixing plate / backing strap has been fitted to support the board joints before boarding. P2 identifies Knauf Flat Fixing Plate 258300; the ALPHA double-layer detail identifies a 70 mm fixing strap where that system is accepted. The actual distance below the head track has been measured and checked against the approved detail, with the measurement and detail reference recorded below. No numerical head offset is stated in the supplied documents.`,w.source+'; P2 joint treatment; ALPHA IWL sheet 1 / 2, item 7.',{requiresHeadMeasurement:['IWL-1','IWL-2','IWS-1'].includes(wallId)}),
+ make('boarding','Are the specified plasterboard layers, fixings and joint stagger installed correctly?',`The installed ${wallId} boarding has been checked against the approved build-up: ${w.build} Board type, layer count, screw type/length/centres and fixing depth have been inspected. ALPHA's supplied double-layer details specify a minimum 150 mm horizontal joint stagger, with vertical joints staggered between layers and opposing faces. The applicable approved manufacturer detail has been checked for this exact assembly; the ALPHA double-layer detail is not automatically approval for the project's four-layer lining.`,w.source+'; ALPHA IWL sheet 1 and Single C sheet 1/2 — horizontal joint stagger minimum 150 mm.'),
+ make('final-plate','Is the specified backing / flat plate for the final plasterboard layer in place before concealment?',`Backing / flat fixing plate support at the final layer's joints has been checked where required by the approved assembly detail, and photographed before concealment. The supporting plate is behind the board joint, not assumed to be an exposed strip on the finished surface. The product and locations match the accepted detail.`,w.source+'; P2 Flat Fixing Plate 258300; ALPHA fixing strap / board-joint details where applicable.')
+ ];
+ return legacyStageQuestion(wallId,stage).map(q=>({...q,id:stage===stages[1]?'insulation':'final-check',section:stage}));
+}
 export const answerOptions=(q:Answer)=>[
- {label:'Installed as drawing — use prepared answer',text:q.expected,result:'Pass' as const},
+ {label:'Yes — use prepared answer',text:q.expected,result:'Pass' as const},
  {label:'Defect / incomplete work',text:'The work at the marked location is incomplete or does not match the drawing / approved detail. The defect, required corrective action and supporting photographs are recorded below.',result:'Fail' as const},
  {label:'Not inspected yet',text:'This stage has not yet been verified at the marked location. The inspection remains pending.',result:'Pending' as const}
 ];

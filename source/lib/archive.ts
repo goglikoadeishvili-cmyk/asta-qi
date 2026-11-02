@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 import {getFiles,getRecords,importAtomic,type StoredFile} from './store';
-import {floors,uid,now,type RecordItem,type Drawing,type Inspection} from './model';
+import {DEFAULT_PROJECT_ID,floors,uid,now,type RecordItem,type Drawing,type Inspection} from './model';
 export async function exportArchive(){const zip=new JSZip();const files=await getFiles();const records=(await getRecords()).map(r=>r.kind==='settings'?{...r,emailToken:''}:r);zip.file('manifest.json',JSON.stringify({format:'asta-personal-qa',version:1,createdAt:now(),records,files:files.map(({blob,...f})=>f)},null,2));for(const f of files)zip.file('files/'+f.id,f.blob);return zip.generateAsync({type:'blob',compression:'STORE'});}
 export async function importArchive(file:File){
  if(file.size>350*1024*1024)throw new Error('Archive exceeds 350 MB. Use a smaller backup.');
@@ -9,15 +9,15 @@ export async function importArchive(file:File){
  let size=0;const files:StoredFile[]=[];
  for(const f of m.files){if(!/^[a-f0-9]{64}$/.test(f.id)||!Number.isFinite(f.size)||f.size<0||f.size>50*1024*1024)throw new Error('Invalid archive file.');size+=f.size;if(size>350*1024*1024)throw new Error('Unpacked archive exceeds 350 MB.');const entry=zip.file('files/'+f.id);if(!entry)throw new Error('Archive is missing a file.');const bytes=await entry.async('uint8array');if(bytes.length!==f.size)throw new Error('Archive file size mismatch.');const digest=await crypto.subtle.digest('SHA-256',bytes as BufferSource);if(Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('')!==f.id)throw new Error('Archive integrity check failed.');files.push({...f,blob:new Blob([bytes as BlobPart],{type:f.type})});}
  const current=await getRecords();const available=new Set([...files.map(f=>f.id),...(await getFiles()).map(f=>f.id)]);const additions:RecordItem[]=[];
- for(const r of m.records){if(!r||typeof r.id!=='string'||!['drawing','inspection','batch','settings'].includes(r.kind))throw new Error('Invalid archive record.');if(r.kind==='settings'){if(!current.some(v=>v.kind==='settings'))additions.push({...r,emailToken:''});continue;}
+ for(const r of m.records){if(!r||typeof r.id!=='string'||!['drawing','inspection','batch','settings','project'].includes(r.kind))throw new Error('Invalid archive record.');if(r.kind==='settings'){if(!current.some(v=>v.kind==='settings'))additions.push({...r,emailToken:''});continue;}
  if(current.some(v=>v.id===r.id))continue;
- if(r.kind==='drawing'&&(!floors.some(f=>f.id===r.floor)||!available.has(r.fileId)||!Number.isInteger(r.page)||r.page<1))throw new Error('Invalid drawing reference.');
+ if(r.kind==='drawing'&&((typeof r.floor!=='string'||!r.floor.trim())||!available.has(r.fileId)||!Number.isInteger(r.page)||r.page<1))throw new Error('Invalid drawing reference.');
  if(r.kind==='inspection'){if(!r.pin||![r.pin.x,r.pin.y].every((n:number)=>Number.isFinite(n)&&n>=0&&n<=1)||!Array.isArray(r.photos)||r.photos.some((p:any)=>!available.has(p.id)))throw new Error('Invalid inspection evidence.');}
  additions.push(r);
  }
  const drawingIds=new Set([...current,...additions].filter(r=>r.kind==='drawing').map(r=>r.id));if(additions.some(r=>r.kind==='inspection'&&!drawingIds.has((r as Inspection).drawingId)))throw new Error('Inspection drawing is missing.');
  await importAtomic(additions,files);return {records:additions.length,files:files.length};
 }
-export function drawingRecords(fileId:string):Drawing[]{return floors.map(f=>({id:'neos-c1-'+f.id,kind:'drawing',floor:f.id,name:f.name+' · '+f.detail,reference:f.reference,revision:'C1',fileId,page:f.page,active:true,createdAt:now()}));}
+export function drawingRecords(fileId:string):Drawing[]{return floors.map(f=>({id:'neos-c1-'+f.id,kind:'drawing',projectId:DEFAULT_PROJECT_ID,floorName:f.name+' '+f.detail,floor:f.id,name:f.name+' · '+f.detail,reference:f.reference,revision:'C1',fileId,page:f.page,active:true,createdAt:now()}));}
 export function download(blob:Blob,name:string){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);}
 export async function prepareBatch(items:Inspection[],make:(i:Inspection)=>Promise<Blob>){const zip=new JSZip();const pdfs=[];for(const i of items){const blob=await make(i);const name=i.reference+'-v'+i.version+'.pdf';zip.file(name,await blob.arrayBuffer());pdfs.push({name,blob});}const blob=await zip.generateAsync({type:'blob',compression:'STORE'});return {blob,pdfs};}

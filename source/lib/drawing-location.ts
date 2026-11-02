@@ -7,8 +7,8 @@ const grids:Record<number,{x:number[];y:number[]}>= {
  3:{x:[.195602,.256970,.317528,.385645,.465525,.567851,.631759],y:[.084808,.154567,.224325,.267243,.381027,.466871,.547178,.627716,.715766,.793495,.895669]}
 };
 function span(value:number,axes:number[],labels:string[]){const nearest=axes.findIndex(v=>Math.abs(v-value)<.0025);if(nearest>=0)return labels[nearest];for(let n=0;n<axes.length-1;n++)if(value>axes[n]&&value<axes[n+1])return labels[n]+'–'+labels[n+1];return '';}
-export function locationForPin(drawing:Pick<Drawing,'floor'|'reference'|'revision'|'fileId'>,pin:Pin){
- const floor=floors.find(f=>f.id===drawing.floor);const prefix=floor?floor.name+' '+floor.detail:String(drawing.floor);
+export function locationForPin(drawing:Pick<Drawing,'floor'|'reference'|'revision'|'fileId'|'floorName'>,pin:Pin){
+ const floor=floors.find(f=>f.id===drawing.floor);const prefix=drawing.floorName||(floor?floor.name+' '+floor.detail:String(drawing.floor));
  const calibrated=drawing.fileId==='809d54646a8c4de3ebb267f1ce3debb3673d45cab345dcdf0fc12e898cc236cd'&&drawing.revision==='C1'&&pin.page===floor?.page;
  const grid=calibrated?grids[pin.page]:undefined;
  if(grid){const x=span(pin.x,grid.x,['6','7','8','9','10','11','12']),y=span(pin.y,grid.y,['A','B','C','D','E','F','G','H','J','K','L']);if(x&&y)return `${prefix} · Grid ${y} / ${x}`;}

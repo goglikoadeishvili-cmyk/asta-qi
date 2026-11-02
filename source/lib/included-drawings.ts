@@ -1,8 +1,11 @@
 import {getFiles,getRecords,putRecord,storeFile} from './store';
+import {DEFAULT_PROJECT_ID,projectOf} from './model';
+import {ensureProjects} from './projects';
 import {drawingRecords} from './archive';
 export const includedDrawingId='809d54646a8c4de3ebb267f1ce3debb3673d45cab345dcdf0fc12e898cc236cd';
 export const includedDrawingUrl=()=>import.meta.env.BASE_URL+'drawings/neos-wall-layouts-c1.pdf';
 export async function ensureIncludedDrawings(){
+ await ensureProjects();
  const files=await getFiles();
  if(!files.some(f=>f.id===includedDrawingId)){
   const response=await fetch(includedDrawingUrl(),{cache:'force-cache'});
@@ -14,7 +17,7 @@ export async function ensureIncludedDrawings(){
  for(const drawing of drawingRecords(includedDrawingId)){
   if(existing.some(r=>r.id===drawing.id))continue;
   // Never replace an existing revision or change inspection drawing references.
-  const active=!existing.some(r=>r.kind==='drawing'&&r.floor===drawing.floor&&r.active);
+  const active=!existing.some(r=>r.kind==='drawing'&&projectOf(r)===DEFAULT_PROJECT_ID&&r.floor===drawing.floor&&r.active);
   await putRecord({...drawing,active});
  }
 }
