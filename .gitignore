@@ -14,3 +14,5 @@
 # Explicitly authorised built-in three-floor plan only.
 !/source/public/drawings/neos-wall-layouts-c1.pdf
 !/drawings/neos-wall-layouts-c1.pdf
+
+/tests/.included-tests.mjs

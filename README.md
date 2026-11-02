@@ -52,7 +52,7 @@ npm run publish:assets
 
 `postinstall` copies the PDF.js worker into `source/public`. The Vite build creates `site-build`; publish:assets copies its outputs to the repository root and creates a versioned offline app-shell service worker. Commit both source and ready root assets. Do not commit `node_modules`, private project packs, photos, other PDFs, backups or secrets. The .gitignore permits only the explicitly authorised built-in C1 PDF under source/public/drawings and drawings. For a different repository slug, set `PAGES_BASE_PATH=/your-slug/` at build time.
 
-Public source is in `source/`. Root HTML/assets are the compiled deployable app. Tests cover checklist gates, pin validity, exactly one email/ZIP for multiple PDFs, provider rejection/uncertainty, duplicate request handling and secure-link mode using mocks; they do not claim real email delivery.
+Public source is in `source/`. Root HTML/assets are the compiled deployable app. Additional initialisation tests verify a fresh install loads the three correct floor pages, reuses the saved drawing, and preserves a newer active revision and existing inspection references. Tests cover checklist gates, pin validity, exactly one email/ZIP for multiple PDFs, provider rejection/uncertainty, duplicate request handling and secure-link mode using mocks; they do not claim real email delivery.
 
 ## GitHub Pages deployment
 
