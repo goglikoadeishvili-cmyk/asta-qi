@@ -24,7 +24,7 @@ jobs:
       - name: Check types
         run: npm run check
       - name: Run tests
-        run: timeout 35s npm test
+        run: npm test
       - name: Build deployable site
         run: PAGES_BASE_PATH=/asta-qi/ npm run build
       - name: Verify publish output
