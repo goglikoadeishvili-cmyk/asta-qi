@@ -111,3 +111,6 @@ November 2026 simplification: main navigation now has Inspections and Projects /
 
 
 Inspection workflow update: after placing a pin, choose Tracks & metal framing or Plasterboard. These create separate inspection records, references, evidence lists and PDFs. Completed framing records offer a new plasterboard inspection at the same pin; no answers or site photos are copied. The former next-section switch is removed. Earlier multi-section records are retained for compatibility. Default prepared wording is shortened in the editor; previous wording is retained in the record's legacy answers when saved, and custom-written answers remain unchanged.
+
+
+Fix: inspection lists now show every saved record in the selected project across all floors. Saving resets list search/status/floor context so the preceding inspection is not hidden by a floor or Pending filter. Pending accepts incomplete records for later editing. Pass still requires answered/passed checks and at least one inspection photo, but no longer requires a separate photo for every question. Per-question camera/upload remains available without a photo count limit. Track response describes the top track, including two FireLine plasterboard fire-strip layers, before the bottom track. Boarding question/answer references manufacturer guidance.

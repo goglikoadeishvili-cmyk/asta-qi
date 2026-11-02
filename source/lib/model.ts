@@ -23,15 +23,16 @@ export function allInspectionAnswers(i:Pick<Inspection,'answers'|'sections'|'sta
 export function validateInspection(i:Inspection,draft=false){
  if(!i.floor?.trim()||!i.drawingId||!Number.isInteger(i.pin?.page)||i.pin.page<1||![i.pin?.x,i.pin?.y].every(v=>Number.isFinite(v)&&v>=0&&v<=1))throw new Error('Choose a floor, drawing and valid pin location.');
  if(!i.wallType)throw new Error('Choose a wall type.');
- if(draft)return;
+ if(draft||i.status==='Pending')return;
  if(!i.location.trim()||!i.description.trim())throw new Error('Enter the location and work description.');
  if(!i.photos.length)throw new Error('Add at least one evidence photo, or save a draft.');
  const checks=allInspectionAnswers(i);
  if(i.status==='Pass'&&(!checks.length||checks.some(a=>a.result!=='Pass'||!a.answer.trim())))throw new Error('Choose the prepared answer or enter your inspection answer before saving as Pass.');
- if(i.templateVersion===2&&i.status==='Pass'){for(const a of checks){if(!i.photos.some(p=>p.questionId===a.id))throw new Error('Add a site evidence photo for each question before passing.');}}
  if(i.status==='Pass'&&i.qaProfile!=='generic'&&['IWS-1','IWS-2'].includes(i.wallType)&&(!i.approvalRef.trim()||!i.approvedBuildUp.trim()))throw new Error('Record the approved design/RFI reference and confirmed build-up for this wall type.');
  if(i.status==='Pass'&&checks.some(a=>a.result==='Fail'))throw new Error('Resolve failed checks before passing.');
  if(i.status==='Fail'&&(!i.defects.trim()||!i.corrective.trim()))throw new Error('Describe the defect and corrective action.');
 }
 
 export function assertProjectInspection(i:Inspection,drawings:Drawing[],projectId:string){const d=drawings.find(d=>d.id===i.drawingId);if(!d||projectOf(i)!==projectId||projectOf(d)!==projectId||i.floor!==d.floor||(i.templateVersion===2&&i.pin.page!==d.page))throw new Error('Inspection and drawing must belong to the selected project and floor.');}
+
+export function inspectionsForProject(records:RecordItem[],projectId:string|null){return records.filter((r):r is Inspection=>r.kind==='inspection'&&!r.deletedAt&&projectOf(r)===projectId);}

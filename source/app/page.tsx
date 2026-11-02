@@ -1,6 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {Building2,Layers,Map,ClipboardCheck,FileText,Settings as SettingsIcon,ChevronRight,ArrowLeft,Upload,Download,Search,X,Check,Mail,Trash2,Archive,Share2,MapPin} from 'lucide-react';
-import {DEFAULT_PROJECT_ID,projectOf,assertProjectInspection,floors,uid,now,today,formatDate,initialSettings,type FloorId,type Inspection,type Drawing,type RecordItem,type Settings,type Batch,type Pin,type Project} from '../lib/model';
+import {DEFAULT_PROJECT_ID,projectOf,inspectionsForProject,assertProjectInspection,floors,uid,now,today,formatDate,initialSettings,type FloorId,type Inspection,type Drawing,type RecordItem,type Settings,type Batch,type Pin,type Project} from '../lib/model';
 import {getRecords,getFiles,putRecord,storeFile,importAtomic} from '../lib/store';
 import {layoutName,stages} from '../lib/catalogue';
 import {download,importArchive,exportArchive,drawingRecords,prepareBatch} from '../lib/archive';
@@ -24,8 +24,8 @@ export default function App(){
  const project=projects.find(p=>p.id===projectId);
  const drawings=records.filter((r):r is Drawing=>r.kind==='drawing'&&projectOf(r)===projectId);
  const drawing=drawings.find(d=>d.id===activeDrawingId);
- const allInspections=records.filter((r):r is Inspection=>r.kind==='inspection'&&!r.deletedAt&&projectOf(r)===projectId);
- const inspections=allInspections.filter(i=>!floor||i.floor===floor);
+ const allInspections=inspectionsForProject(records,projectId);
+ const inspections=allInspections;
  const selected=allInspections.filter(i=>selection.includes(i.id));
  const batches=records.filter((r):r is Batch=>r.kind==='batch'&&projectOf(r)===projectId).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
  const floorName=project?.floors.find(f=>f.id===floor);
@@ -38,7 +38,7 @@ export default function App(){
  async function upload(blob:Blob,name:string){const f=await storeFile(blob,name);if(!urls.current[f.id])urls.current[f.id]=URL.createObjectURL(blob);return f;}
  function selectProject(p:Project){ProjectId(p.id);F(null);D(null);Sel([]);Ref(null);S('');St('All');V('Inspections');if(!records.some(r=>r.kind==='drawing'&&projectOf(r)===p.id&&r.active))M({type:'upload-prompt'});}
  function openDrawing(d:Drawing){D(d.id);F(d.floor);Ref(null);V('Drawing');S('');St('All');}
- function navigate(v:string){if(!project&&v!=='Projects'&&v!=='Settings'){N('Choose a project first.');V('Projects');return;}if(v==='Floors'){F(null);D(null);}V(v);Ref(null);S('');St('All');}
+ function navigate(v:string){if(!project&&v!=='Projects'&&v!=='Settings'){N('Choose a project first.');V('Projects');return;}if(['Floors','Inspections','Reports'].includes(v)){F(null);if(v==='Floors')D(null);}V(v);Ref(null);S('');St('All');}
  function newInspection(pin:Pin,stage?:string,selectedDrawing:Drawing|undefined=drawing){const target=selectedDrawing;if(!target)return;if(!stage){M({type:'inspection-type',pin,drawing:target});return;}const drawing=target,floor=drawing.floor;const i=createInspectionAt(drawing,project!,pin,stage);M({type:'inspection',inspection:i});}
  async function report(i:Inspection){const d=drawings.find(d=>d.id===i.drawingId);if(!d)throw new Error('Original drawing reference missing. Restore the project backup.');assertProjectInspection(i,drawings,project!.id);return makeReport(i,d,settings,urlFor,project);}
  async function preview(i:Inspection){await run('Generating report',async()=>{const blob=await report(i);const f=await upload(blob,i.reference+'-v'+i.version+'.pdf');M({type:'preview',url:urlFor(f.id),name:i.reference+'-v'+i.version+'.pdf'});});}
@@ -54,7 +54,7 @@ export default function App(){
   const record:Drawing={id:uid(),kind:'drawing',projectId:project.id,floor:level,floorName:project.floors.find(f=>f.id===level)?.name||level,name:data.name,reference:data.reference,revision,fileId:f.id,page:data.page,active:true,createdAt:now()};
   await importAtomic([...(updatedProject?[updatedProject]:[]),...(previous?[{...previous,active:false}]:[]),record],[]);await refresh();channel.current?.postMessage('refresh');M(null);openDrawing(record);N('Drawing saved to '+project.name+'. Earlier revisions and their pins are preserved.');
  });}
- async function saveInspection(i:Inspection){assertProjectInspection(i,drawings,project!.id);const current=await getRecords();const previous=current.find(r=>r.kind==='inspection'&&r.id===i.id) as Inspection|undefined;if(previous&&previous.version!==i.version)throw new Error('This inspection changed in another tab. Close and reopen it before editing.');const result={...i,updatedAt:now(),version:i.version+1};await save(result);M(null);V('Inspections');N('Inspection saved on this device. Original evidence retained.');}
+ async function saveInspection(i:Inspection){assertProjectInspection(i,drawings,project!.id);const current=await getRecords();const previous=current.find(r=>r.kind==='inspection'&&r.id===i.id) as Inspection|undefined;if(previous&&previous.version!==i.version)throw new Error('This inspection changed in another tab. Close and reopen it before editing.');const result={...i,updatedAt:now(),version:i.version+1};await save(result);M(null);F(null);S('');St('All');V('Inspections');N('Inspection saved on this device. Original evidence retained.');}
  async function prepare(){await run('Generating individual PDFs and ZIP',async()=>{if(!selected.length||selected.some(i=>!['Pass','Fail'].includes(i.status)))throw new Error('Select completed Pass / Fail inspections.');for(const i of selected)assertProjectInspection(i,drawings,project!.id);if(selected.length>20)throw new Error('Select up to 20 inspections per email.');const {blob,pdfs}=await prepareBatch(selected,report);const reports=[];for(const f of pdfs)reports.push((await upload(f.blob,f.name)).id);const zip=await upload(blob,'ASTA-QA-reports-'+today()+'.zip');const batch:Batch={id:uid(),kind:'batch',projectId:project!.id,createdAt:now(),inspectionIds:selected.map(i=>i.id),references:selected.map(i=>i.reference+' · '+i.wallType+' · '+i.floor+' · '+i.location),versions:selected.map(i=>i.version),reportIds:reports,zipId:zip.id,recipient:settings.recipient,subject:project!.name+' - Drylining QA inspection reports - '+today(),message:'Please find attached the drylining QA inspection reports for review. Each inspection is a separate PDF within the single ZIP attachment.\n\nKind regards,\n'+settings.inspector+'\n'+settings.name,status:'prepared',size:blob.size};await save(batch);M({type:'email',batch,blob});});}
  async function deleteInspection(i:Inspection){if(!confirm('Move '+i.reference+' to the archive? Its photos and previous report history will be retained.'))return;await run('Archiving inspection',async()=>{await save({...i,deletedAt:now(),updatedAt:now(),version:i.version+1});Sel(s=>s.filter(id=>id!==i.id));M(null);});}
  const filtered=inspections.filter(i=>(status==='All'||i.status===status)&&`${i.reference} ${i.wallType} ${i.location} ${i.date} ${i.drawingSnapshot.reference} ${i.comments}`.toLowerCase().includes(search.toLowerCase())).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));
