@@ -5,10 +5,11 @@ on:
     branches: [main]
   push:
     branches:
+      - main
       - 'fix/**'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   test-and-build:
@@ -28,3 +29,13 @@ jobs:
         run: PAGES_BASE_PATH=/asta-qi/ npm run build
       - name: Verify publish output
         run: npm run publish:assets
+      - name: Commit compiled web assets on main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A assets index.html sw.js
+          if ! git diff --cached --quiet; then
+            git commit -m 'Publish verified ASTA QI web assets'
+            git push origin HEAD:main
+          fi
