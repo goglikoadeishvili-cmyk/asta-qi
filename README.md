@@ -153,3 +153,11 @@ The owner's public Google OAuth Client ID is configured as the app default. Exis
 ### Current report-only exports (November 2026)
 New recipient ZIPs contain only individual PDFs, named `Metal inspection - FLOOR - QI-REFERENCE - vN.pdf` or `Plasterboard inspection - FLOOR - QI-REFERENCE - vN.pdf`. Loose originals and JSON indexes are excluded. Each PDF embeds inspection checks/answers/photos and the saved drawing excerpt; every photo repeats that inspection's pin, drawing reference and revision. Legacy QA/QN prefixes are displayed as QI in newly generated reports without changing stored record identities. Existing frozen batches remain unchanged; select inspections and generate a new ZIP to use this format.
 PDF-only downloads are not backups of the original photos. They can be sent/marked sent, but never enable automatic original-photo deletion. Keep originals in the app/cloud and use the separate full `.asta` backup for recoverable evidence. Legacy original-photo ZIP restore and cleanup guards remain supported.
+
+## 2026-11-02 QA report and sync update
+
+- Generated reports include the selected inspection stage questions and all corresponding site evidence in one PDF per inspection.
+- The pin-marked drawing excerpt appears once, in a compact section after the photographs; it is not repeated under each photo.
+- Standard generated work descriptions are shorter without removing measurements or inspection decisions.
+- Connected Google Drive devices sync after a completed local save, when reopened/focused and every 30 seconds while the app stays open. Google may still require reconnection on reload or expiry, and true unattended sign-in is not supported by the browser-only OAuth token model.
+- Static site assets are automatically compiled and checked on source updates.
