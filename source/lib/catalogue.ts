@@ -23,7 +23,7 @@ export function questions(wallId:string,stage:string):Answer[]{
  return stage===stages[0]?[...common,...frame]:stage===stages[1]?[...common,...insulation]:stage===stages[2]?[...common,...boards]:[...common,...finish];
 }
 export const answerOptions=(q:Answer)=>[
- {label:'Matches requirement',text:'Observed: '+q.expected,result:'Pass' as const},
+ {label:'Matches requirement',text:'Observed: '+q.expected.split(/(?<=\.)\s+/)[0],result:'Pass' as const},
  {label:'Defect / does not match',text:'Does not match the requirement. See recorded defect and corrective action.',result:'Fail' as const},
  {label:'Not yet checked / clarification',text:'Not verified. Inspection or approved design clarification is outstanding.',result:'Pending' as const},
  {label:'Not applicable',text:'Not applicable to this inspection stage/location; reason recorded below.',result:'N/A' as const}
