@@ -1,0 +1,24 @@
+// Short-lived Google OAuth tokens stay in memory; no password or client secret is used.
+export const GMAIL_ZIP_LIMIT=24_000_000;
+const scopes='https://www.googleapis.com/auth/gmail.send openid email';
+let session:{token:string;email:string;expires:number}|null=null;
+let loading:Promise<void>|null=null;
+export function gmailSession(){return session&&session.expires>Date.now()?session:null;}
+export function loadGoogleIdentity(){if((window as any).google?.accounts?.oauth2)return Promise.resolve();return loading||=(new Promise<void>((resolve,reject)=>{const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.async=true;s.onload=()=>resolve();s.onerror=()=>{loading=null;s.remove();reject(new Error('Google sign-in could not load. Reconnect and retry.'));};document.head.appendChild(s);}));}
+export function connectGmail(clientId:string,email:string):Promise<string>{
+ if(!/^[\w.-]+\.apps\.googleusercontent\.com$/.test(clientId))return Promise.reject(new Error('Set up the Google OAuth Client ID in Company & email first.'));
+ const oauth=(window as any).google?.accounts?.oauth2;if(!oauth)return Promise.reject(new Error('Google sign-in is loading. Please retry Connect Gmail.'));
+ return new Promise((resolve,reject)=>{const client=oauth.initTokenClient({client_id:clientId,scope:scopes,include_granted_scopes:false,hint:email,callback:async(r:any)=>{try{if(r.error||!r.access_token)throw new Error(r.error_description||r.error||'Google did not authorise sending.');if(!oauth.hasGrantedAllScopes(r,'https://www.googleapis.com/auth/gmail.send'))throw new Error('Gmail send permission was not granted.');const info=await fetch('https://openidconnect.googleapis.com/v1/userinfo',{headers:{Authorization:'Bearer '+r.access_token}});const user=await info.json();if(!info.ok||!user.email_verified||user.email?.toLowerCase()!==email.toLowerCase()){oauth.revoke(r.access_token,()=>{});throw new Error('Choose the sender account '+email+'. No message was sent.');}session={token:r.access_token,email:user.email,expires:Date.now()+(Number(r.expires_in)||3600)*1000-60000};resolve(user.email);}catch(e){reject(e);}},error_callback:(e:any)=>reject(new Error(e.type==='popup_closed'?'Google sign-in was cancelled.':'Allow the Google sign-in popup and try again.'))});client.requestAccessToken({prompt:'select_account'});});
+}
+export function disconnectGmail(){const old=session;session=null;if(old)(window as any).google?.accounts?.oauth2?.revoke(old.token,()=>{});}
+export const bytesBase64=(bytes:Uint8Array)=>{let s='';for(let n=0;n<bytes.length;n+=8192)s+=String.fromCharCode(...bytes.subarray(n,n+8192));return btoa(s);};
+const encode=(s:string)=>bytesBase64(new TextEncoder().encode(s));
+export async function gmailRaw({from,to,subject,message,zip,batchId}:{from:string;to:string;subject:string;message:string;zip:Blob;batchId:string}){
+ if(!/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(to)||/[\r\n]/.test(from+to+subject)||subject.length>200||!subject.trim()||!message.trim())throw new Error('Enter one valid recipient, subject and message.');
+ if(zip.size>GMAIL_ZIP_LIMIT)throw new Error('ZIP exceeds the 24 MB app attachment limit. Originals have not been reduced. Select fewer inspections or use a configured secure-link gateway.');
+ const boundary='asta_'+batchId.replace(/[^a-zA-Z0-9]/g,'');const attachment=bytesBase64(new Uint8Array(await zip.arrayBuffer())).match(/.{1,76}/g)?.join('\r\n')||'';
+ const mime=[`From: ${from}`,`To: ${to}`,`Subject: =?UTF-8?B?${encode(subject)}?=`,'MIME-Version: 1.0',`Message-ID: <asta-${boundary}@dryliner.invalid>`,`Content-Type: multipart/mixed; boundary="${boundary}"`,'',`--${boundary}`,'Content-Type: text/plain; charset=UTF-8','Content-Transfer-Encoding: base64','',encode(message).match(/.{1,76}/g)?.join('\r\n')||'',`--${boundary}`,'Content-Type: application/zip; name="ASTA-QI-reports.zip"','Content-Disposition: attachment; filename="ASTA-QI-reports.zip"','Content-Transfer-Encoding: base64','',attachment,`--${boundary}--`,''].join('\r\n');
+ return encode(mime).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+export class GmailSendError extends Error{constructor(message:string,public uncertain=false){super(message);}}
+export async function sendGmail(raw:string,token:string,fetcher:typeof fetch=fetch){let r:Response;try{r=await fetcher('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({raw})});}catch{throw new GmailSendError('Gmail response was lost. Check Gmail Sent before any retry; sending is unconfirmed.',true);}let result:any;try{result=await r.json()}catch{throw new GmailSendError('Gmail response could not be confirmed. Check Gmail Sent before retrying.',true);}if(!r.ok||!result.id)throw new GmailSendError(result.error?.message||'Gmail did not confirm sending.',r.status>=500||r.ok);return String(result.id);}
