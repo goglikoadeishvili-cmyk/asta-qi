@@ -3,7 +3,7 @@ import type {Inspection,Drawing,Settings,Project} from './model';
 import {reportReference,inspectionTitle} from './report-names';
 import {excerptGeometry} from './report-geometry';
 import {floors,reportInspectionAnswers} from './model';
-import {photoRowCount,proportionalFit,evidencePhotoHeight} from './report-layout';
+import {PHOTOS_PER_ROW,photoRowCount,proportionalFit,evidencePhotoHeight} from './report-layout';
 export async function pdfjs(){const p=await import('pdfjs-dist');p.GlobalWorkerOptions.workerSrc=import.meta.env.BASE_URL+'pdf.worker.min.mjs';return p;}
 export async function inspectPdf(file:Blob){const p=await pdfjs();const doc=await p.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;const count=doc.numPages;await doc.destroy();return count;}
 export async function renderDrawing(url:string,page=1){if(!url)throw new Error('Drawing file is missing. Import its project pack or restore your backup.');const p=await pdfjs();const doc=await p.getDocument(url).promise;try{const pg=await doc.getPage(page);const unscaled=pg.getViewport({scale:1});const scale=Math.min(2,2600/Math.max(unscaled.width,unscaled.height));const vp=pg.getViewport({scale});const c=document.createElement('canvas');c.width=Math.ceil(vp.width);c.height=Math.ceil(vp.height);await pg.render({canvasContext:c.getContext('2d')!,viewport:vp}).promise;return {canvas:c,count:doc.numPages};}finally{await doc.destroy();}}
@@ -14,7 +14,7 @@ export async function makeReport(i:Inspection,drawing:Drawing,settings:Settings,
  doc.setTitle(title+' - '+reference);doc.setAuthor('ACL');doc.setCreator('ASTA QI');
  const font=await doc.embedFont(StandardFonts.Helvetica),bold=await doc.embedFont(StandardFonts.HelveticaBold);
  const ink=rgb(.07,.16,.28),muted=rgb(.40,.46,.54),blue=rgb(.10,.32,.58),pale=rgb(.94,.97,.99),rule=rgb(.83,.88,.92);
- const W=595.28,H=841.89,L=35,CW=W-2*L,BOTTOM=55;
+ const W=595.28,H=841.89,L=32,CW=W-2*L,BOTTOM=38;
  let page:any,y=0,logo:any=null;
  try{const response=await fetch(import.meta.env.BASE_URL+'branding/acl-logo-v2.png');if(response.ok)logo=await doc.embedPng(await response.arrayBuffer())}catch{}
  const normal=(v:any)=>String(v??'').replace(/[–—]/g,'-').replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
@@ -53,12 +53,16 @@ export async function makeReport(i:Inspection,drawing:Drawing,settings:Settings,
   }
  }
  function startPage(){
-  page=doc.addPage([W,H]);
-  page.drawRectangle({x:0,y:785,width:W,height:H-785,color:ink});
-  if(logo){const lw=80;page.drawImage(logo,{x:L,y:798,width:lw,height:lw*logo.height/logo.width});}
-  page.drawText('QUALITY INSPECTION',{x:logo?129:L,y:817,size:11.3,font:bold,color:rgb(1,1,1)});
-  page.drawText('DRYLINING / SITE RECORD',{x:logo?129:L,y:802,size:8,font,color:rgb(.69,.80,.92)});
-  y=768;
+  const first=doc.getPageCount()===0;page=doc.addPage([W,H]);
+  if(first){
+   page.drawRectangle({x:0,y:802,width:W,height:H-802,color:ink});
+   if(logo){const lw=65;page.drawImage(logo,{x:L,y:810,width:lw,height:lw*logo.height/logo.width});}
+   page.drawText('QUALITY INSPECTION',{x:logo?110:L,y:825,size:10.5,font:bold,color:rgb(1,1,1)});
+   page.drawText('DRYLINING / SITE RECORD',{x:logo?110:L,y:811,size:7.2,font,color:rgb(.69,.80,.92)});y=785;
+  }else{
+   page.drawText(reference+' / '+title+' / CONTINUED',{x:L,y:817,size:8,font,color:muted});
+   page.drawLine({start:{x:L,y:807},end:{x:W-L,y:807},thickness:.6,color:rule});y=791;
+  }
  }
  async function ensureSpace(height:number){if(y-height<BOTTOM)startPage();}
  async function printLines(lines:string[],size:number,leading:number,isBold=false,color=ink){
@@ -78,16 +82,16 @@ export async function makeReport(i:Inspection,drawing:Drawing,settings:Settings,
   await drawText(lines[0],x+px,yy,8,false,ink);
  }
  startPage();
- await drawText(title,L,759,18,true);
- await drawText(reference,L,738,9,true,muted);
- await drawText((i.status==='Pass'?'PASS':'PENDING')+'  /  '+i.wallType+'  /  '+i.stage,250,738,9,true,blue);
+ await drawText(title,L,782,16,true);
+ await drawText(reference,L,765,8.5,true,muted);
+ await drawText((i.status==='Pass'?'PASS':'PENDING')+'  /  '+i.wallType+'  /  '+i.stage,245,765,8.5,true,blue);
  const floor=project?.floors?.find(f=>f.id===i.floor)?.name||drawing.floorName||floors.find(f=>f.id===i.floor)?.name||i.floor;
- await drawCompactLabel('Project',project?.name||'Project',L,718,326);
- await drawCompactLabel('Inspected by','ACL',378,718,176);
- await drawCompactLabel('Floor',floor,L,701,320);
- await drawCompactLabel('Date',i.date,378,701,176);
- await drawCompactLabel('Location',i.location,L,683,520);
- // A compact marked drawing comes before every question, without any full-sheet drawing.
+ await drawCompactLabel('Project',project?.name||'Project',L,748,326);
+ await drawCompactLabel('Inspected by','ACL',378,748,176);
+ await drawCompactLabel('Floor',floor,L,732,320);
+ await drawCompactLabel('Date',i.date,378,732,176);
+ await drawCompactLabel('Location',i.location,L,716,520);
+ // One shared drawing pin identifies the location of every photo in this inspection.
  const {canvas:source}=await render(urlFor(drawing.fileId),i.pin.page);
  const g=excerptGeometry(source.width,source.height,i.pin),crop=document.createElement('canvas');
  crop.width=g.targetWidth;crop.height=g.targetHeight;
@@ -97,17 +101,17 @@ export async function makeReport(i:Inspection,drawing:Drawing,settings:Settings,
  ctx.strokeStyle='white';ctx.lineWidth=5;ctx.stroke();
  ctx.beginPath();ctx.arc(g.px,g.py,5,0,Math.PI*2);ctx.fillStyle='white';ctx.fill();
  const excerpt=await doc.embedPng(crop.toDataURL());
- await drawText('DRAWING - MARKED INSPECTION POSITION',L,665,9,true,blue);
- const drawingWidth=218,drawingHeight=drawingWidth*excerpt.height/excerpt.width,top=653;
+ await drawText('DRAWING - MARKED INSPECTION POSITION',L,701,8,true,blue);
+ const drawingWidth=180,drawingHeight=drawingWidth*excerpt.height/excerpt.width,top=691;
  page.drawImage(excerpt,{x:L,y:top-drawingHeight,width:drawingWidth,height:drawingHeight});
  page.drawRectangle({x:L,y:top-drawingHeight,width:drawingWidth,height:drawingHeight,borderWidth:.6,borderColor:rule});
  const right=L+drawingWidth+16;
- await drawText('DRAWING REFERENCE',right,642,7.1,true,muted);
- const refs=wrap(i.drawingSnapshot.reference,8,W-right-L);let refY=625;
+ await drawText('DRAWING REFERENCE',right,679,7.1,true,muted);
+ const refs=wrap(i.drawingSnapshot.reference,8,W-right-L);let refY=663;
  for(const line of refs.slice(0,3)){await drawText(line,right,refY,8,true);refY-=13;}
  await drawText('REV '+i.drawingSnapshot.revision+'  /  PAGE '+i.pin.page,right,refY-3,8,false,ink);
  await drawText('Red pin: inspection location',right,refY-20,7.5,false,muted);
- y=top-drawingHeight-15;
+ y=top-drawingHeight-11;
  page.drawLine({start:{x:L,y:y+6},end:{x:W-L,y:y+6},thickness:.8,color:rule});
  const checks=reportInspectionAnswers(i);
  const photosFor=(questionId:string)=>i.photos.filter(p=>p.questionId===questionId);
@@ -126,61 +130,56 @@ export async function makeReport(i:Inspection,drawing:Drawing,settings:Settings,
  const extra=i.photos.filter(p=>!p.questionId||!checks.some(a=>a.id===p.questionId));
  const groups=checks.map(a=>({answer:a,photos:photosFor(a.id)}));
  if(extra.length)groups.push({answer:null as any,photos:extra});
- const textHeight=groups.reduce((sum,g)=>{
-  if(!g.answer)return sum+16;
-  const questionLines=wrap(g.answer.question,9,CW-8,true),answerLines=wrap(shortenBoilerplate(g.answer.answer||'Not inspected'),8.1,CW-8);
-  const noteLines=g.answer.comment?wrap(g.answer.comment,7.8,CW-8):[];
-  return sum+13+questionLines.length*11.5+answerLines.length*10.4+noteLines.length*10+8;
- },0);
+ const qSize=8.8,qLeading=10.5,aSize=8,aLeading=9.5,noteSize=7.6,noteLeading=9;
+ const groupLines=(answer:any,index:number)=>({
+  question:wrap((index+1)+'. '+answer.question,qSize,CW-6,true),
+  answer:wrap(shortenBoilerplate(answer.answer||'Not inspected.'),aSize,CW-6),
+  note:answer.comment?wrap('Note: '+answer.comment,noteSize,CW-6):[]
+ });
+ const tails=[['Comments',i.comments],['Defects / actions',[i.defects,i.corrective].filter(Boolean).join(' / ')],['Design approval',i.approvalRef]].filter(([,v])=>v).map(([label,value])=>wrap(label!.toUpperCase()+': '+value,8,CW));
+ const tailHeight=tails.reduce((sum,lines)=>sum+lines.length*10+8,0);
+ const textHeight=groups.reduce((sum,g,n)=>{if(!g.answer)return sum+15;const lines=groupLines(g.answer,n);return sum+12+lines.question.length*qLeading+lines.answer.length*aLeading+lines.note.length*noteLeading;},0);
  const totalRows=groups.reduce((sum,g)=>sum+photoRowCount(g.photos.length),0);
- const photoHeight=evidencePhotoHeight(y,textHeight,totalRows);
+ const caption=(p:Inspection['photos'][number],number:number)=>{const value=(p.caption||'').trim();return wrap('PHOTO '+number+(value&&value!==p.name?' / '+value:''),6.8,(CW-16)/3);};
+ let plannedSerial=0,captionExtra=0;
+ for(const group of groups)for(let start=0;start<group.photos.length;start+=PHOTOS_PER_ROW){const cells=group.photos.slice(start,start+PHOTOS_PER_ROW);const maxLines=Math.max(...cells.map(p=>caption(p,++plannedSerial).length));captionExtra+=(maxLines-1)*8;}
+ const photoHeight=evidencePhotoHeight(y,textHeight,totalRows,tailHeight+captionExtra);
  let serial=0;
+ function rowGeometry(photos:Inspection['photos']){
+  const gap=8,cell=(CW-gap*(PHOTOS_PER_ROW-1))/PHOTOS_PER_ROW;
+  const items=photos.map((photo,n)=>({photo,image:images.get(photo.id)!.image,caption:caption(photo,serial+n+1)}));
+  const sizes=items.map(({image})=>proportionalFit(image.width,image.height,cell-4,photoHeight));
+  const tallest=Math.max(...sizes.map(s=>s.height)),captionHeight=Math.max(...items.map(item=>item.caption.length))*8;
+  return {gap,cell,items,sizes,tallest,captionHeight,height:tallest+captionHeight+13};
+ }
  async function printPhotoRow(photos:Inspection['photos'],checkNumber:number){
-  const gap=13,cell=(CW-gap)/2,rows=photos.map(p=>images.get(p.id)!);
-  const sizes=rows.map(({image})=>proportionalFit(image.width,image.height,cell-5,photoHeight));
-  const tallest=Math.max(...sizes.map(s=>s.height));
-  const before=y;
-  await ensureSpace(tallest+20);
-  if(before!==y&&checkNumber>0){await drawText('PHOTO EVIDENCE / CHECK '+checkNumber,L,y,8,true,blue);y-=16;}
-  const photoTop=y-13;
-  for(let n=0;n<rows.length;n++){
-   const item=rows[n],fit=sizes[n],cellX=L+n*(cell+gap);
-   const x=cellX+(cell-fit.width)/2;
-   serial++;
-   const caption=(item.photo.caption||'').trim();
-   const display=caption&&caption!==item.photo.name?'PHOTO '+serial+' / '+caption:'PHOTO '+serial;
-   let cap=display;while(cap.length>10&&measure(cap,7,true)>cell-6)cap=cap.slice(0,-2)+'…';
-   await drawText(cap,cellX,photoTop+4,7,true,muted);
-   const imageY=photoTop-5-fit.height;
-   page.drawImage(item.image,{x,y:imageY,width:fit.width,height:fit.height});
-   page.drawRectangle({x,y:imageY,width:fit.width,height:fit.height,borderColor:rule,borderWidth:.6});
+  const row=rowGeometry(photos);
+  if(y-row.height<BOTTOM){startPage();if(checkNumber>0){await drawText('CHECK '+checkNumber+' / PHOTO EVIDENCE (CONTINUED)',L,y,7.5,true,blue);y-=14;}}
+  const imageTop=y-row.captionHeight-5;
+  for(let n=0;n<row.items.length;n++){
+   const item=row.items[n],fit=row.sizes[n],cellX=L+n*(row.cell+row.gap),x=cellX+(row.cell-fit.width)/2;
+   for(let line=0;line<item.caption.length;line++)await drawText(item.caption[line],cellX,y-6-line*8,6.8,true,muted);
+   const imageY=imageTop-fit.height;page.drawImage(item.image,{x,y:imageY,width:fit.width,height:fit.height});
+   page.drawRectangle({x,y:imageY,width:fit.width,height:fit.height,borderColor:rule,borderWidth:.5});serial++;
   }
-  y=photoTop-5-tallest-9;
+  y-=row.height;
  }
  for(let n=0;n<groups.length;n++){
   const group=groups[n],a=group.answer,groupPhotos=group.photos;
   if(a){
-   const qLines=wrap((n+1)+'. '+a.question,9,CW-9,true),aLines=wrap(shortenBoilerplate(a.answer||'Not inspected.'),8.1,CW-9);
-   const noteLines=a.comment?wrap('Note: '+a.comment,7.8,CW-9):[];
-   const headingHeight=qLines.length*11.5+aLines.length*10.4+noteLines.length*10+14;
-   await ensureSpace(headingHeight+(groupPhotos.length?45:0));
-   page.drawRectangle({x:L,y:y-3,width:CW,height:1,color:pale});y-=12;
-   for(const line of qLines){await drawText(line,L+3,y,9,true,ink);y-=11.5;}
-   for(const line of aLines){await drawText(line,L+3,y,8.1,false,ink);y-=10.4;}
-   for(const line of noteLines){await drawText(line,L+3,y,7.8,false,muted);y-=10;}
-   y-=2;
-  }else{
-   await ensureSpace(30);await drawText('ADDITIONAL SITE PHOTOS',L,y,9,true,blue);y-=15;
-  }
-  for(let start=0;start<groupPhotos.length;start+=2){
-   await printPhotoRow(groupPhotos.slice(start,start+2),a?n+1:0);
-  }
+   const lines=groupLines(a,n),headingHeight=12+lines.question.length*qLeading+lines.answer.length*aLeading+lines.note.length*noteLeading;
+   const firstRow=groupPhotos.length?rowGeometry(groupPhotos.slice(0,PHOTOS_PER_ROW)).height:0;
+   // Keep the question, answer and its first evidence row together when they fit.
+   await ensureSpace(headingHeight+firstRow);
+   page.drawLine({start:{x:L,y:y-2},end:{x:W-L,y:y-2},thickness:.6,color:rule});y-=9;
+   for(const line of lines.question){await ensureSpace(qLeading);await drawText(line,L+2,y,qSize,true,ink);y-=qLeading;}
+   for(const line of lines.answer){await ensureSpace(aLeading);await drawText(line,L+2,y,aSize,false,ink);y-=aLeading;}
+   for(const line of lines.note){await ensureSpace(noteLeading);await drawText(line,L+2,y,noteSize,false,muted);y-=noteLeading;}
+   y-=3;
+  }else{await ensureSpace(15+(groupPhotos.length?rowGeometry(groupPhotos.slice(0,PHOTOS_PER_ROW)).height:0));await drawText('ADDITIONAL SITE PHOTOS',L,y,8,true,blue);y-=15;}
+  for(let start=0;start<groupPhotos.length;start+=PHOTOS_PER_ROW)await printPhotoRow(groupPhotos.slice(start,start+PHOTOS_PER_ROW),a?n+1:0);
  }
- for(const [label,value] of [['Comments',i.comments],['Defects / actions',[i.defects,i.corrective].filter(Boolean).join(' / ')],['Design approval',i.approvalRef]]){
-  if(!value)continue;
-  const lines=wrap(label.toUpperCase()+': '+value,8,CW);await ensureSpace(lines.length*11+8);
-  for(const line of lines){await drawText(line,L,y,8,false,ink);y-=11;}y-=8;
- }
+ for(const lines of tails){for(const line of lines){await ensureSpace(10);await drawText(line,L,y,8,false,ink);y-=10;}y-=8;}
  // Only the continuation gets numbering; no repeated inspector/date/footer blocks.
  if(doc.getPageCount()>1)doc.getPages().forEach((p,n)=>p.drawText((n+1)+' / '+doc.getPageCount(),{x:W-L-24,y:26,size:7,font,color:muted}));
  return new Blob([await doc.save() as BlobPart],{type:'application/pdf'});

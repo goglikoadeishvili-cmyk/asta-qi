@@ -52,15 +52,15 @@ test('PDF-only manual send never authorises original-photo cleanup',()=>{const b
 import {photoRowCount,proportionalFit,evidencePhotoHeight} from '../source/lib/report-layout';
 import {makeReport} from '../source/lib/pdf';
 import {PDFDocument} from 'pdf-lib';
-test('photo evidence is arranged in 2-column rows and proportional fit never crops or skews',()=>{
- assert.equal(photoRowCount(2),1);assert.equal(photoRowCount(3),2);assert.equal(photoRowCount(5),3);
+test('photo evidence is arranged in 3-column rows and proportional fit never crops or skews',()=>{
+ assert.equal(photoRowCount(2),1);assert.equal(photoRowCount(3),1);assert.equal(photoRowCount(5),2);
  const fit=proportionalFit(945,2048,256,165);
  assert.ok(fit.height<=165&&fit.width<=256);
  assert.ok(Math.abs(fit.width/fit.height-945/2048)<.00001);
  const landscape=proportionalFit(2400,1200,256,165);assert.equal(landscape.width,256);assert.equal(landscape.height,128);
  assert.ok(evidencePhotoHeight(522,132,2)>=110);
 });
-test('real PDF generator fits two checks and two photos on one A4 and overflows extra photos',{timeout:15000},async()=>{
+test('real PDF generator fits three checks and nine photos on one A4 and safely continues extra evidence',{timeout:15000},async()=>{
  const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAABICAIAAACyfKYoAAAAc0lEQVR42u3QMQEAAAgDILV/55liH0Rgkwx9p0C0aESLFo1o0YgWLRrRohEtWjSiRSNatGhEi0a0aNGIFo1o0aIRLRrRokUjWjSiRYtGtGhEixaNaNGIFi0a0aIRLVo0okUjWrRoRItGtGjRiBaNaNGiaXloqgONOLflLQAAAABJRU5ErkJggg==';
  const photograph=Buffer.from(png.split(',')[1],'base64');
  const oldFetch=globalThis.fetch,oldDocument=(globalThis as any).document;
@@ -83,6 +83,10 @@ test('real PDF generator fits two checks and two photos on one A4 and overflows 
   const pdf=await makeReport(base,drawing,settings,urlFor,project,render);
   const first=await PDFDocument.load(await pdf.arrayBuffer());
   assert.equal(first.getPageCount(),1,'one normal inspection must fit one A4');
+  const boardAnswers=questions('IWL-2',stages[2]).map(q=>({...q,answer:q.expected,result:'Pass'}));
+  const boarding={...base,stage:stages[2],answers:boardAnswers,photos:boardAnswers.flatMap((q,n)=>Array.from({length:3},(_,p)=>({id:'board-'+n+'-'+p,name:'photo.jpg',caption:'',questionId:q.id})))};
+  const compact=await PDFDocument.load(await(await makeReport(boarding,drawing,settings,urlFor,project,render)).arrayBuffer());
+  assert.equal(compact.getPageCount(),1,'three current boarding questions and three photos each fit one A4');
   const multiple={...base,photos:Array.from({length:9},(_,n)=>({id:'pic-'+n,name:'original-'+n+'.jpg',caption:'',questionId:n<5?'tracks':'metal-frame'}))};
   const overflowing=await makeReport(multiple,drawing,settings,urlFor,project,render);
   const second=await PDFDocument.load(await overflowing.arrayBuffer());
