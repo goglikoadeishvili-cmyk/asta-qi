@@ -159,3 +159,19 @@ test('each wall keeps its own insulation, layers, reveal brackets and track syst
   if(wall.id==='BLK-1')assert.doesNotMatch(board[0].question,/plasterboard/);
  }
 });
+
+import {monday,dateKey,newWeekly,weeklyInspections,weeklyDays,weeklyInspectionText,shiftDate} from '../source/lib/weekly';
+test('weekly reporting rolls on London Mondays across DST and year boundaries without redistributing dates',()=>{
+ assert.equal(monday('2026-11-03'),'2026-11-02');assert.equal(monday('2027-01-01'),'2026-12-28');
+ assert.equal(dateKey(new Date('2026-06-07T23:30:00Z')),'2026-06-08');
+ assert.equal(newWeekly('p','2026-11-08').id,newWeekly('p','2026-11-02').id);
+ assert.notEqual(newWeekly('p','2026-11-09').id,newWeekly('p','2026-11-02').id);
+ const base={...sample(),projectId:'p',date:'2026-11-03',stage:stages[0],drawingSnapshot:{reference:'drawing',revision:'C1'},pin:{x:.5,y:.4,page:1}};
+ const rows=[base,{...base,id:'earlier-work',workDate:'2026-11-02'},{...base,id:'deleted',deletedAt:'now'},{...base,id:'other',projectId:'other'},{...base,id:'outside',date:'2026-11-09'}] as any;
+ const found=weeklyInspections(rows,'p','2026-11-02');assert.equal(found.length,2);
+ const days=weeklyDays(newWeekly('p','2026-11-03'),found);
+ assert.equal(days[0].inspections.length,1);assert.equal(days[1].inspections.length,1);assert.equal(days[2].inspections.length,0);
+ assert.match(weeklyInspectionText(base),/Inspection date; work completion date not separately recorded/);
+ assert.match(weeklyInspectionText({...base,workDate:'2026-11-02'}),/inspected 2026-11-03/);
+ assert.equal(shiftDate('2026-12-31',1),'2027-01-01');
+});

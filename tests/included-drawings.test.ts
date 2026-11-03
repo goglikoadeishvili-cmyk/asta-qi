@@ -36,3 +36,14 @@ test('missing cloud evidence cannot be reported as a successful complete sync',a
  await assert.rejects(()=>syncDrive('test-only',fetcher,'missing-test'),/referenced file is missing/);
  assert.equal(data.records.size,0,'incomplete remote records were not imported');
 });
+
+import {ensureWeeklyRecord,saveWeeklyRecord} from '../source/lib/store';
+import {newWeekly} from '../source/lib/weekly';
+test('automatic weekly creation preserves saved notes and refuses stale overwrites',async()=>{
+ data.records.clear();const initial=newWeekly('p','2026-11-03');await ensureWeeklyRecord(initial);
+ const saved={...initial,version:2,nextWeek:'Actual next-week plan'};await saveWeeklyRecord(saved,1);
+ await ensureWeeklyRecord(initial);assert.equal(data.records.get(initial.id).nextWeek,saved.nextWeek);
+ await assert.rejects(()=>saveWeeklyRecord({...initial,nextWeek:'stale overwrite'},1),/changed in another/);
+ assert.equal(data.records.get(initial.id).nextWeek,saved.nextWeek);
+ const fileCount=data.files.size;await ensureWeeklyRecord(newWeekly('p','2026-11-09'));assert.equal(data.files.size,fileCount,'weekly draft creates no stored PDF or duplicate photos');
+});

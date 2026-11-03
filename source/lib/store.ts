@@ -26,3 +26,10 @@ export async function importSynced(records:RecordItem[],files:StoredFile[],basel
   tx.oncomplete=()=>resolve(combined);tx.onerror=()=>reject(tx.error||new Error('Cloud records were not saved.'));tx.onabort=()=>reject(tx.error||new Error('Cloud import was cancelled.'));
  });
 }
+
+export async function ensureWeeklyRecord(record:import('./model').WeeklyReport){
+ const d=await db();return new Promise<void>((resolve,reject)=>{const tx=d.transaction('records','readwrite'),rs=tx.objectStore('records'),req=rs.get(record.id);req.onsuccess=()=>{if(!req.result)rs.put(record)};tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});
+}
+export async function saveWeeklyRecord(record:import('./model').WeeklyReport,expectedVersion:number){
+ const d=await db();return new Promise<void>((resolve,reject)=>{const tx=d.transaction('records','readwrite'),rs=tx.objectStore('records'),req=rs.get(record.id);let conflict=false;req.onsuccess=()=>{if(req.result?.version!==expectedVersion){conflict=true;return;}rs.put(record)};tx.oncomplete=()=>conflict?reject(new Error('This weekly report changed in another tab or device. Copy your edits, then reopen the report before saving.')):resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});
+}

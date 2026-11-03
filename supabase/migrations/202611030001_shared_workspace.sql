@@ -15,7 +15,7 @@ create table public.qa_records (
  payload jsonb not null,revision bigint not null default 1,
  updated_at timestamptz not null default now(),updated_by uuid not null references auth.users(id),
  primary key(workspace_id,id),check(payload->>'id'=id),
- check(payload->>'kind' in ('project','drawing','inspection','batch','settings')),
+ check(payload->>'kind' in ('project','drawing','inspection','batch','settings','weekly')),
  check(octet_length(payload::text)<=2097152)
 );
 create table public.qa_record_history (
@@ -51,7 +51,7 @@ language plpgsql security definer set search_path=public,pg_temp as $$
 declare old public.qa_records; saved public.qa_records;
 begin
  if not public.qa_member(p_workspace,true) then raise exception 'Workspace access denied' using errcode='42501';end if;
- if length(p_id)>250 or p_payload->>'id' is distinct from p_id or coalesce(p_payload->>'kind','') not in ('project','drawing','inspection','batch','settings') or octet_length(p_payload::text)>2097152 then raise exception 'Invalid record';end if;
+ if length(p_id)>250 or p_payload->>'id' is distinct from p_id or coalesce(p_payload->>'kind','') not in ('project','drawing','inspection','batch','settings','weekly') or octet_length(p_payload::text)>2097152 then raise exception 'Invalid record';end if;
  if p_payload->>'kind'='settings' and coalesce(p_payload->>'emailToken','')<>'' then raise exception 'Secrets cannot be shared';end if;
  perform pg_advisory_xact_lock(hashtextextended(p_workspace::text||':'||p_id,0));
  select * into old from public.qa_records where workspace_id=p_workspace and id=p_id;
