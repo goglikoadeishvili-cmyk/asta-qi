@@ -143,3 +143,19 @@ test('sent duplicate cleanup preserves original evidence, drawings and uncertain
  assert.ok(!neededCloudFiles([{...sent,reportIds:[],zipId:'',temporaryReports:true}]).has(''));
  assert.equal(planReportCleanup([{...sent,zipId:'zip'}, {kind:'inspection',id:'i',photos:[],evidencePurgedAt:'old',archivedByBatch:'sent'}] as any,files).fileIds.length,0);
 });
+
+test('each wall keeps its own insulation, layers, reveal brackets and track system',()=>{
+ for(const wall of wallTypes){
+  const metal=questions(wall.id,stages[0]),board=questions(wall.id,stages[2]);
+  if(wall.insulationMm){assert.match(board[0].expected,new RegExp(wall.insulationMm+' mm acoustic insulation'));}
+  else{for(const q of [...metal,...board])assert.doesNotMatch(q.question+' '+q.expected,/\binsulation\b/i);}
+  if(wall.id==='IWL-3'){
+   assert.match(metal[0].expected,/92 mm/);assert.match(metal[1].question,/acoustic brackets/);
+   assert.match(board[1].expected,/Four 15 mm/);
+   assert.doesNotMatch(JSON.stringify([...metal,...board]),/CineWALL|Stravilink|146 mm|100 mm/);
+  }
+  if(wall.id.startsWith('IWS-'))assert.doesNotMatch(metal[0].expected,/CineWALL/);
+  if(wall.id==='IWS-2'){assert.match(board[1].expected,/30 mm coreboard/);assert.doesNotMatch(board[0].expected,/100 mm/);}
+  if(wall.id==='BLK-1')assert.doesNotMatch(board[0].question,/plasterboard/);
+ }
+});
