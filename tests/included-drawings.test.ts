@@ -2,8 +2,8 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {ensureIncludedDrawings,includedDrawingId} from '../source/lib/included-drawings';
-const data={records:new Map<string,any>(),files:new Map<string,any>()};
-(globalThis as any).indexedDB={open(){const req:any={};queueMicrotask(()=>{req.result={transaction(_name:any){const tx:any={};const op=(fn:()=>any)=>{const r:any={};queueMicrotask(()=>{r.result=fn();r.onsuccess?.();queueMicrotask(()=>tx.oncomplete?.());});return r;};tx.objectStore=(name:'records'|'files')=>({getAll:()=>op(()=>[...data[name].values()]),get:(id:string)=>op(()=>data[name].get(id)),delete:(id:string)=>op(()=>data[name].delete(id)),put:(r:any)=>op(()=>{data[name].set(r.id,r);return r.id})});return tx;}};req.onsuccess?.();});return req;}};
+const data={records:new Map<string,any>(),files:new Map<string,any>(),drafts:new Map<string,any>()};
+(globalThis as any).indexedDB={open(){const req:any={};queueMicrotask(()=>{req.result={transaction(_name:any){const tx:any={};const op=(fn:()=>any)=>{const r:any={};queueMicrotask(()=>{r.result=fn();r.onsuccess?.();queueMicrotask(()=>tx.oncomplete?.());});return r;};tx.objectStore=(name:'records'|'files'|'drafts')=>({getAll:()=>op(()=>[...data[name].values()]),get:(id:string)=>op(()=>data[name].get(id)),delete:(id:string)=>op(()=>data[name].delete(id)),put:(r:any)=>op(()=>{data[name].set(r.id,r);return r.id})});return tx;}};req.onsuccess?.();});return req;}};
 let requests=0;const realFetch=globalThis.fetch;
 (globalThis as any).fetch=async()=>{requests++;const bytes=await readFile(new URL('../source/public/drawings/neos-wall-layouts-c1.pdf',import.meta.url));return new Response(bytes,{headers:{'Content-Type':'application/pdf'}})};
 test('fresh install automatically saves the three correct floor pages without manual import',async()=>{await ensureIncludedDrawings();assert.equal(requests,1);assert.equal(data.files.size,1);assert.ok(data.files.has(includedDrawingId));assert.deepEqual([...data.records.values()].filter(d=>d.kind==='drawing').map(d=>[d.floor,d.page,d.revision]),[['OB1',1,'C1'],['GF',2,'C1'],['MO1',3,'C1']]);});
@@ -46,4 +46,12 @@ test('automatic weekly creation preserves saved notes and refuses stale overwrit
  await assert.rejects(()=>saveWeeklyRecord({...initial,nextWeek:'stale overwrite'},1),/changed in another/);
  assert.equal(data.records.get(initial.id).nextWeek,saved.nextWeek);
  const fileCount=data.files.size;await ensureWeeklyRecord(newWeekly('p','2026-11-09'));assert.equal(data.files.size,fileCount,'weekly draft creates no stored PDF or duplicate photos');
+});
+
+import {saveInspectionDraft,recoverInspectionDrafts,clearInspectionDraft} from '../source/lib/store';
+test('unfinished form survives reload as Pending without storing duplicate photos, and explicit discard clears recovery',async()=>{
+ data.records.clear();data.drafts.clear();const photo={id:'photo',name:'site.jpg'},i={id:'draft-i',kind:'inspection',reference:'QI-DRAFT',version:0,stage:'Metal framing',photos:[photo],pin:{x:.2,y:.3,page:1},answers:[{id:'tracks',answer:'Partial answer'}],comments:'',status:'Pass'} as any;
+ const count=data.files.size;await saveInspectionDraft(i);assert.equal(data.records.size,0);assert.equal(await recoverInspectionDrafts(),1);
+ const saved=data.records.get(i.id);assert.equal(saved.status,'Pending');assert.deepEqual(saved.photos,[photo]);assert.equal(saved.answers[0].answer,'Partial answer');assert.equal(data.files.size,count);assert.equal(data.drafts.size,0);
+ await saveInspectionDraft({...saved,comments:'Discard me'});await clearInspectionDraft(i.id);assert.equal(await recoverInspectionDrafts(),0);assert.equal(data.records.get(i.id).comments,'');
 });

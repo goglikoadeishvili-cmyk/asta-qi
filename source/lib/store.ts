@@ -3,9 +3,9 @@ let pending:Promise<IDBDatabase>|null=null;
 let databaseName='asta-personal-qa';
 export const isSharedStore=()=>databaseName!=='asta-personal-qa';
 export function selectWorkspaceStore(workspaceId?:string,userId?:string){const name=workspaceId&&userId?'asta-shared-qa:'+workspaceId+':'+userId:'asta-personal-qa';if(name!==databaseName){pending=null;databaseName=name;}}
-export async function readLegacyWorkspace(){const req=indexedDB.open('asta-personal-qa',1);return new Promise<{records:RecordItem[];files:StoredFile[]}>((resolve,reject)=>{req.onupgradeneeded=()=>{req.result.createObjectStore('records',{keyPath:'id'});req.result.createObjectStore('files',{keyPath:'id'});};req.onerror=()=>reject(req.error);req.onsuccess=()=>{const d=req.result,t=d.transaction(['records','files'],'readonly'),a=t.objectStore('records').getAll(),b=t.objectStore('files').getAll();t.oncomplete=()=>{resolve({records:a.result,files:b.result});d.close()};t.onerror=()=>reject(t.error);};});}
+export async function readLegacyWorkspace(){const req=indexedDB.open('asta-personal-qa',2);return new Promise<{records:RecordItem[];files:StoredFile[]}>((resolve,reject)=>{req.onupgradeneeded=()=>{for(const name of ['records','files','drafts'])if(!req.result.objectStoreNames.contains(name))req.result.createObjectStore(name,{keyPath:'id'});};req.onerror=()=>reject(req.error);req.onsuccess=()=>{const d=req.result,t=d.transaction(['records','files'],'readonly'),a=t.objectStore('records').getAll(),b=t.objectStore('files').getAll();t.oncomplete=()=>{resolve({records:a.result,files:b.result});d.close()};t.onerror=()=>reject(t.error);};});}
 
-function db(){return pending||=new Promise<IDBDatabase>((resolve,reject)=>{const req=indexedDB.open(databaseName,1);req.onupgradeneeded=()=>{req.result.createObjectStore('records',{keyPath:'id'});req.result.createObjectStore('files',{keyPath:'id'});};req.onsuccess=()=>resolve(req.result);req.onerror=()=>{pending=null;reject(req.error)};req.onblocked=()=>reject(new Error('Close other ASTA tabs and reopen.'));});}
+function db(){return pending||=new Promise<IDBDatabase>((resolve,reject)=>{const req=indexedDB.open(databaseName,2);req.onupgradeneeded=()=>{for(const name of ['records','files','drafts'])if(!req.result.objectStoreNames.contains(name))req.result.createObjectStore(name,{keyPath:'id'});};req.onsuccess=()=>resolve(req.result);req.onerror=()=>{pending=null;reject(req.error)};req.onblocked=()=>reject(new Error('Close other ASTA tabs and reopen.'));});}
 async function request<T>(store:string,mode:IDBTransactionMode,fn:(s:IDBObjectStore)=>IDBRequest<T>):Promise<T>{const d=await db();return new Promise((resolve,reject)=>{const t=d.transaction(store,mode);const r=fn(t.objectStore(store));let result:T;r.onsuccess=()=>{result=r.result};t.oncomplete=()=>resolve(result);t.onerror=()=>reject(t.error||r.error);t.onabort=()=>reject(t.error||new Error('Storage was not saved.'));});}
 export const getRecords=()=>request<RecordItem[]>('records','readonly',s=>s.getAll());
 export const putRecord=(v:RecordItem)=>request('records','readwrite',s=>s.put(v));
@@ -32,4 +32,19 @@ export async function ensureWeeklyRecord(record:import('./model').WeeklyReport){
 }
 export async function saveWeeklyRecord(record:import('./model').WeeklyReport,expectedVersion:number){
  const d=await db();return new Promise<void>((resolve,reject)=>{const tx=d.transaction('records','readwrite'),rs=tx.objectStore('records'),req=rs.get(record.id);let conflict=false;req.onsuccess=()=>{if(req.result?.version!==expectedVersion){conflict=true;return;}rs.put(record)};tx.oncomplete=()=>conflict?reject(new Error('This weekly report changed in another tab or device. Copy your edits, then reopen the report before saving.')):resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});
+}
+
+// A separate device-local draft store protects unfinished work without changing a saved Pass.
+const draftPrefix=()=> 'asta-form-draft:'+databaseName+':';
+function backupDraft(value:import('./inspection-drafts').InspectionDraft){try{localStorage.setItem(draftPrefix()+value.id,JSON.stringify(value));}catch{/* IndexedDB remains the primary draft store. */}}
+export async function saveInspectionDraft(i:import('./model').Inspection){const value={id:i.id,inspection:structuredClone(i),savedAt:new Date().toISOString()};backupDraft(value);await request('drafts','readwrite',s=>s.put(value));}
+export async function clearInspectionDraft(id:string){await request('drafts','readwrite',s=>s.delete(id));try{localStorage.removeItem(draftPrefix()+id)}catch{}}
+export async function recoverInspectionDrafts(){
+ const {recoverInspection}=await import('./inspection-drafts');
+ const values=new Map((await request<import('./inspection-drafts').InspectionDraft[]>('drafts','readonly',s=>s.getAll())).map(d=>[d.id,d]));
+ try{for(let n=0;n<localStorage.length;n++){const key=localStorage.key(n);if(!key?.startsWith(draftPrefix()))continue;const d=JSON.parse(localStorage.getItem(key)||'null');if(d?.id&&d.inspection?.id===d.id&&d.inspection.kind==='inspection'&&d.inspection.pin&&d.savedAt&&(!values.has(d.id)||values.get(d.id)!.savedAt<d.savedAt))values.set(d.id,d);}}catch{}
+ if(!values.size)return 0;
+ const d=await db();await new Promise<void>((resolve,reject)=>{const tx=d.transaction(['records','drafts'],'readwrite'),rs=tx.objectStore('records');for(const value of values.values()){const req=rs.get(value.id);req.onsuccess=()=>{rs.put(recoverInspection(value,req.result));tx.objectStore('drafts').delete(value.id)};}tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});
+ for(const value of values.values())try{localStorage.removeItem(draftPrefix()+value.id)}catch{}
+ return values.size;
 }

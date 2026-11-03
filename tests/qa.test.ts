@@ -171,7 +171,22 @@ test('weekly reporting rolls on London Mondays across DST and year boundaries wi
  const found=weeklyInspections(rows,'p','2026-11-02');assert.equal(found.length,2);
  const days=weeklyDays(newWeekly('p','2026-11-03'),found);
  assert.equal(days[0].inspections.length,1);assert.equal(days[1].inspections.length,1);assert.equal(days[2].inspections.length,0);
- assert.match(weeklyInspectionText(base),/metal framing inspected. Inspection passed/);assert.doesNotMatch(weeklyInspectionText(base),/QA-TEST|IWL-1|Drawing|rev |pin |%/);
+ assert.match(weeklyInspectionText(base),/Metal framing installed and passed quality inspection/);assert.doesNotMatch(weeklyInspectionText(base),/QA-TEST|IWL-1|Drawing|rev |pin |%/);
  assert.match(weeklyInspectionText({...base,workDate:'2026-11-02'}),/Checked on 3 Nov 2026/);
  assert.equal(shiftDate('2026-12-31',1),'2027-01-01');
+});
+
+test('weekly activities lead with installed work only when the quality inspection has passed',()=>{
+ const i={...sample(),stage:stages[0],date:'2026-11-04',location:'Grid J-K',floor:'GF'};
+ assert.match(weeklyInspectionText(i),/Metal framing installed and passed quality inspection/);
+ const pending=weeklyInspectionText({...i,status:'Pending'});assert.match(pending,/activity recorded; quality inspection still pending/);assert.doesNotMatch(pending,/installed|passed/);
+ assert.match(weeklyInspectionText({...i,stage:stages[2]}),/Plasterboard installed/);
+});
+import {recoverInspection} from '../source/lib/inspection-drafts';
+test('refresh recovery retains partial answers and photos as Pending, preserving newer saved work on conflict',()=>{
+ const original={...sample(),version:3,comments:'Unfinished edit',photos:[{id:'original-photo',reportId:'report-photo'}]};
+ const draft={id:original.id,inspection:original,savedAt:'2026-11-04T10:00:00Z'};
+ const restored=recoverInspection(draft,{...original,comments:'Previously saved'});
+ assert.equal(restored.id,original.id);assert.equal(restored.status,'Pending');assert.equal(restored.version,4);assert.deepEqual(restored.photos,original.photos);assert.deepEqual(restored.answers,original.answers);
+ const conflict=recoverInspection(draft,{...original,version:5});assert.notEqual(conflict.id,original.id);assert.match(conflict.reference,/RECOVERY/);assert.equal(conflict.status,'Pending');
 });

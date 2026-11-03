@@ -1,12 +1,18 @@
-import React,{useRef,useState} from 'react';
+import React,{useEffect,useRef,useState} from 'react';
 import {Camera,Upload,Trash2,ChevronRight,Check,ArrowLeft,FileText} from 'lucide-react';
 import type {Inspection,Photo,Drawing,Project,Answer} from '../lib/model';
 import {now,validateInspection,allInspectionAnswers} from '../lib/model';
+import {saveInspectionDraft,clearInspectionDraft} from '../lib/store';
 import {locationForPin} from '../lib/drawing-location';
 import {wallTypes,stages,questions,answerOptions,specificationRef} from '../lib/catalogue';
 function editable(initial:Inspection,drawing?:Drawing){const d=structuredClone(initial);if(d.status==='Draft'||d.status==='Fail')d.status='Pending';const clean=(a:Answer)=>{const fresh=questions(d.wallType,a.section||d.stage,d.qaProfile||'neos',d.specification+'; '+d.wallSnapshot).find(q=>q.id===a.id);const standard=fresh&&a.answer&&a.answer===a.expected;if(standard&&a.answer!==fresh.expected)d.legacyAnswers=[...(d.legacyAnswers||[]),{...a}];return {...a,...(fresh?{question:fresh.question,expected:fresh.expected,source:fresh.source,...(standard?{answer:fresh.expected}:{})}:{}),requiresHeadMeasurement:false,referenceIds:undefined};};const oldDescription=d.answers.filter(a=>a.answer).map(a=>a.answer).join('\n\n');d.answers=d.answers.map(clean);if(d.description===oldDescription)d.description=d.answers.filter(a=>a.answer).map(a=>a.answer).join('\n\n');d.sections=Object.fromEntries(Object.entries(d.sections||{}).map(([k,v])=>[k,v.map(clean)]));if(d.stage==='Framing & isolation')d.stage=stages[0];if(!d.location&&drawing){d.location=locationForPin(drawing,d.pin);d.locationSource='pin';}return d;}
-export default function InspectionForm({initial,project,drawing,urlFor,upload,onSave,onCancel,onReport,busy}:{initial:Inspection;project?:Project;drawing?:Drawing;urlFor:(id:string)=>string;upload:(b:Blob,n:string)=>Promise<any>;onSave:(i:Inspection)=>Promise<void>;onCancel:()=>void;onReport:(i:Inspection)=>void;busy:boolean}){
+export default function InspectionForm({initial,project,drawing,urlFor,upload,onSave,onCancel,onReport,busy,onDraftSource}:{initial:Inspection;project?:Project;drawing?:Drawing;urlFor:(id:string)=>string;upload:(b:Blob,n:string)=>Promise<any>;onSave:(i:Inspection)=>Promise<void>;onCancel:()=>void;onReport:(i:Inspection)=>void;busy:boolean;onDraftSource?:(read:(()=>Inspection)|null)=>void}){
  const [d,S]=useState<Inspection>(()=>editable(initial,drawing)),[step,Step]=useState(initial.wallType&&(project?.qaProfile!=='generic'||(initial.specification&&initial.wallSnapshot&&initial.answers.length))?1:0),[error,E]=useState(''),[adding,A]=useState(false);const camera=useRef<HTMLInputElement>(null),picker=useRef<HTMLInputElement>(null),targetQuestion=useRef<string|undefined>(undefined);
+ const baseline=useRef(JSON.stringify(d));
+ const needsDraft=initial.version===0||JSON.stringify(d)!==baseline.current;
+ useEffect(()=>{if(needsDraft)saveInspectionDraft(d).catch(()=>E('Automatic draft save failed. Keep this form open and use Save pending.'));},[d,needsDraft]);
+ useEffect(()=>{onDraftSource?.(()=>{if(adding)throw new Error('Wait until the photos finish saving before refreshing.');return {...d,status:'Pending'};});return()=>onDraftSource?.(null);},[d,adding]);
+ useEffect(()=>{const protect=(e:BeforeUnloadEvent)=>{if(needsDraft)saveInspectionDraft(d).catch(()=>{});if(adding){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',protect);return()=>window.removeEventListener('beforeunload',protect);},[d,needsDraft,adding]);
  const neos=project?.qaProfile!=='generic';const wall=neos?wallTypes.find(w=>w.id===d.wallType):d.wallType?{id:d.wallType,title:'Project wall system',build:d.wallSnapshot,colour:'#b0cfff',issue:'Follow this project’s approved details.',source:d.specification}:undefined;
  const change=(k:keyof Inspection,v:any)=>S(x=>({...x,[k]:v}));
  const joined=(answers:Answer[])=>answers.filter(a=>a.answer).map(a=>a.answer).join('\n\n');

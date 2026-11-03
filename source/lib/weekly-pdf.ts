@@ -15,7 +15,7 @@ export async function makeWeeklyReport(report:WeeklyReport,items:Inspection[],pr
  async function text(value:string,size=9,b=false,color=ink){for(const valueLine of wrap(value,size,b))await line(valueLine,size,b,color);}
  async function heading(label:string){if(y<100)start();y-=12;await text(label,11,true,blue);y-=4;}
  start(true);
- await text(project.name,14,true);await text('Prepared for: '+(report.preparedFor||project.preparedFor||settings.preparedFor||'Not recorded'),9);await text('Reporting period: '+report.weekStart+' to '+shiftDate(report.weekStart,6)+' | Friday: '+shiftDate(report.weekStart,4),9);
+ await text(project.name,14,true);await text('Prepared for: '+project.name,9);await text('Reporting period: '+report.weekStart+' to '+shiftDate(report.weekStart,6)+' | Friday: '+shiftDate(report.weekStart,4),9);
  await text('Prepared by: '+settings.inspector+' | Company: ACL | Generated: '+new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',dateStyle:'medium'}).format(new Date()),9);
  y-=8;const passed=items.filter(i=>weeklyStatus(i)==='Pass').length;await text(items.length+' inspections | '+passed+' passed | '+(items.length-passed)+' pending',9,true);
  await text('Results relate to the locations inspected. Entries use the recorded work date where available, otherwise the inspection date.',8,false,muted);
