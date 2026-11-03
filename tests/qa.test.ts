@@ -131,3 +131,15 @@ test('IWL-1 uses the company updated 92 mm studs without guessing a replacement 
  const wall=wallTypes.find(w=>w.id==='IWL-1')!;assert.match(wall.build,/92 mm I-stud/);assert.doesNotMatch([wall.build,wall.detail,wall.issue].join(' '),/146 mm|148 mm/);
  const frame=questions('IWL-1',stages[0])[1];assert.match(frame.question,/92 mm/);assert.match(frame.question,/updated project requirements/);assert.match(frame.expected,/92 mm I-studs at 600 mm centres/);assert.doesNotMatch(frame.expected,/146 mm|148 mm|94 mm/);
 });
+
+test('sent duplicate cleanup preserves original evidence, drawings and uncertain exports',async()=>{
+ const {planReportCleanup,neededCloudFiles}=await import('../source/lib/delivery');
+ const sent={id:'sent',kind:'batch',status:'accepted',providerId:'gmail-id',inspectionIds:['i'],versions:[1],reportIds:['pdf','photo'],zipId:'zip'} as any;
+ const unknown={...sent,id:'unknown',status:'unknown',reportIds:['pdf'],zipId:'uncertain'};
+ const records=[sent,unknown,{kind:'drawing',fileId:'drawing'},{kind:'inspection',id:'i',photos:[{id:'photo',reportId:'report-photo'}]}] as any;
+ const files=['pdf','zip','uncertain','photo','report-photo','drawing'].map(id=>({id,size:10,type:'application/pdf'}));
+ const plan=planReportCleanup(records,files);
+ assert.deepEqual(plan.fileIds,['zip']);assert.equal(plan.bytes,10);
+ assert.ok(!neededCloudFiles([{...sent,reportIds:[],zipId:'',temporaryReports:true}]).has(''));
+ assert.equal(planReportCleanup([{...sent,zipId:'zip'}, {kind:'inspection',id:'i',photos:[],evidencePurgedAt:'old',archivedByBatch:'sent'}] as any,files).fileIds.length,0);
+});

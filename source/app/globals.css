@@ -23,3 +23,5 @@
 .cloud-panel{border-top:1px solid #e1e8f1;margin-top:8px;padding-top:12px;line-height:1.8}.cloud-panel summary{font-weight:600;color:#2365a8;cursor:pointer}.cloud-panel p{margin:12px 0}.cloud-panel a{color:#1468dc;text-decoration:underline}
 
 .workspace-login{width:min(460px,calc(100% - 32px));margin:6vh auto;padding:26px;background:#fff;border:1px solid #d8e3f0;border-radius:16px;color:#102b47;box-shadow:0 8px 30px #102b470d}.workspace-login>img{width:140px;height:auto}.workspace-login h1{font-size:22px}.workspace-login label{display:block;margin:18px 0}.workspace-login input{display:block;width:100%;min-height:48px;margin-top:8px}.workspace-login p{line-height:1.6}.shared-panel{border-top:1px solid #d8e3f0;margin-top:18px;padding-top:16px}.shared-panel button{margin-top:12px}.shared-panel p{line-height:1.5}
+
+.inspection-list-row.is-sent{background:#f0f8f3;border-left:3px solid #64a980}.inspection-list-row.is-sent .sent-label{color:#26704b;font-weight:600}.inspection-list-row.is-sent.is-selected{background:#e5efff}
