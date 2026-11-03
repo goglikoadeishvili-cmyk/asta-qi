@@ -8,11 +8,13 @@
     "build": "vite build source --config source/vite.config.ts --outDir ../site-build --emptyOutDir",
     "publish:assets": "node scripts/publish-assets.mjs",
     "check": "tsc --noEmit -p source/tsconfig.json",
-    "test": "npm run test:unit && npm run test:included",
+    "test": "npm run test:unit && npm run test:included && npm run test:shared",
     "test:unit": "esbuild tests/qa.test.ts --bundle --platform=node --format=cjs --outfile=.test-build/tests.cjs && node --test .test-build/tests.cjs",
-    "test:included": "esbuild tests/included-drawings.test.ts --bundle --platform=node --format=esm --define:import.meta.env.BASE_URL='\"/asta-qi/\"' --outfile=tests/.included-tests.mjs && node --test tests/.included-tests.mjs"
+    "test:included": "esbuild tests/included-drawings.test.ts --bundle --platform=node --format=esm --define:import.meta.env.BASE_URL='\"/asta-qi/\"' --outfile=tests/.included-tests.mjs && node --test tests/.included-tests.mjs",
+    "test:shared": "esbuild tests/shared-workspace.test.ts --bundle --platform=node --format=esm --define:import.meta.env.BASE_URL='\"/asta-qi/\"' --outfile=tests/.shared-tests.mjs && node --test tests/.shared-tests.mjs tests/shared-database.test.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "2.118.0",
     "jszip": "^3.10.2",
     "lucide-react": "^1.31.0",
     "pdf-lib": "^1.17.1",
@@ -21,12 +23,13 @@
     "react-dom": "19.2.6"
   },
   "devDependencies": {
-    "vite": "8.0.13",
-    "@vitejs/plugin-react": "6.0.2",
-    "typescript": "5.9.3",
-    "esbuild": "^0.28.0",
+    "@electric-sql/pglite": "0.5.14",
+    "@types/node": "^22.15.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "@types/node": "^22.15.0"
+    "@vitejs/plugin-react": "6.0.2",
+    "esbuild": "^0.28.0",
+    "typescript": "5.9.3",
+    "vite": "8.0.13"
   }
 }

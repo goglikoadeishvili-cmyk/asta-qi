@@ -170,3 +170,9 @@ Unexpired Google Drive/Gmail access tokens can now survive reloads in the **same
 Cloud imports now read/merge/write in a single IndexedDB transaction, preserving local saves during network activity. Missing required cloud evidence prevents reporting a complete successful sync. Uploads skip unreferenced local blobs. Offline work remains local until a connected sync completes.
 
 Validation covers pin visibility/scoping, session restore/account/expiry separation, two simulated devices, preservation of a save during sync, missing-evidence rejection, PDF-only ZIPs, PDF layouts and sending-state guards. Real phone/laptop Google sessions and live Gmail delivery still require user-side verification; they cannot be inferred from repository tests. The existing cross-device simultaneous-email-send lock and shared team workspace are still not implemented. This is a targeted reliability review, not a completed production security audit.
+
+## Shared storage migration (prepared; activation required)
+
+The app now includes a Supabase-backed common company workspace with persistent app login, private evidence storage, server-checked membership, revisioned records, migration of old phone/laptop copies, storage usage and cross-device email claims. The original local/Drive mode remains available while the checked-in configuration is empty. **No live shared workspace or transfer of the owner's inspections has been completed merely by publishing this code.**
+
+See [shared workspace setup and migration](docs/SHARED-WORKSPACE.md) for the exact one-time activation steps, migration safety, free-tier limits, validation, and rollback. Set only the public values in `source/public/workspace-config.json` or `.env.example`; never publish Supabase secret/service-role keys or database passwords. The existing GitHub Pages app URL can stay unchanged.

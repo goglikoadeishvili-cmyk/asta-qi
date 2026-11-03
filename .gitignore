@@ -16,3 +16,9 @@
 !/drawings/neos-wall-layouts-c1.pdf
 
 /tests/.included-tests.mjs
+
+.env
+.env.local
+.env.*.local
+
+/tests/.shared-tests.mjs
