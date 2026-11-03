@@ -89,3 +89,28 @@ test('real PDF generator fits two checks and two photos on one A4 and overflows 
   assert.ok(second.getPageCount()>=2,'additional evidence must continue to another page');
  }finally{globalThis.fetch=oldFetch;(globalThis as any).document=oldDocument;}
 });
+
+import {drawingPins} from '../source/lib/drawing-pins';
+import {restoreSession,saveSession,forgetSession} from '../source/lib/oauth-session';
+import {driveSession,disconnectCloud,disconnectGmail} from '../source/lib/gmail';
+test('new inspection drawing starts without historical pins; history respects project, drawing, page and archive',()=>{
+ const drawing={id:'d',projectId:'p',page:3} as any;const saved={...sample(),id:'kept',drawingId:'d',projectId:'p',pin:{x:.4,y:.5,page:3}} as any;
+ const items=[saved,{...saved,id:'deleted',deletedAt:'2026-11-03'},{...saved,id:'other-project',projectId:'other'},{...saved,id:'other-drawing',drawingId:'old-revision'},{...saved,id:'other-page',pin:{...saved.pin,page:2}},{...saved,id:'invalid',pin:{...saved.pin,x:NaN}}];
+ assert.deepEqual(drawingPins(items,drawing,3,false),[]);
+ assert.deepEqual(drawingPins(items,drawing,3,true).map(i=>i.id),['kept']);
+ assert.equal(items.length,6,'hiding pins does not delete records');
+});
+test('short-lived connection survives same-tab reload, stays account-bound and expires without extending permission',()=>{
+ const old=(globalThis as any).sessionStorage,values=new Map<string,string>();
+ (globalThis as any).sessionStorage={getItem:(key:string)=>values.get(key)||null,setItem:(key:string,value:string)=>values.set(key,value),removeItem:(key:string)=>values.delete(key)};
+ try{const time=Date.now(),value={token:'test-token',email:'person@example.test',clientId:'test-client',expires:time+300000};saveSession('cloud',value);
+ assert.deepEqual(restoreSession('cloud','test-client','person@example.test',time),value);
+ assert.equal(restoreSession('gmail','test-client','person@example.test',time),null,'Gmail and Drive permissions stay separate');
+ assert.equal(restoreSession('cloud','wrong-client','person@example.test',time),null);
+ assert.equal(restoreSession('cloud','test-client','another@example.test',time),null);
+ assert.equal(driveSession('test-client','person@example.test')?.token,'test-token');
+ disconnectGmail();assert.ok(restoreSession('cloud','test-client','person@example.test',time),'local Gmail disconnect cannot disconnect cloud');
+ disconnectCloud();assert.equal(restoreSession('cloud'),null);
+ saveSession('cloud',value);assert.equal(restoreSession('cloud','test-client','person@example.test',time+300001),null);assert.equal(values.size,0);
+ }finally{disconnectCloud();forgetSession('gmail');(globalThis as any).sessionStorage=old;}
+});

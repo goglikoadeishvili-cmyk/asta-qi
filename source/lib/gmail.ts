@@ -1,19 +1,20 @@
-// Short-lived Google OAuth tokens stay in memory; no password or client secret is used.
+// Short-lived tokens are kept in this tab's sessionStorage, never in synced records.
+import {type GoogleSession,restoreSession,saveSession,forgetSession,sessionMatches} from './oauth-session';
 export const GMAIL_ZIP_LIMIT=24_000_000;
 const scopes='https://www.googleapis.com/auth/gmail.send openid email';
-let session:{token:string;email:string;expires:number}|null=null;
-let cloudSession:{token:string;email:string;expires:number}|null=null;
-export function driveSession(){return cloudSession&&cloudSession.expires>Date.now()?cloudSession:null;}
-export function disconnectCloud(){const old=cloudSession;cloudSession=null;if(old)(window as any).google?.accounts?.oauth2?.revoke(old.token,()=>{});}
+let session:GoogleSession|null=null;
+let cloudSession:GoogleSession|null=null;
+export function driveSession(clientId?:string,email?:string){if(!sessionMatches(cloudSession,clientId,email))cloudSession=restoreSession('cloud',clientId,email);return sessionMatches(cloudSession,clientId,email)?cloudSession:null;}
+export function disconnectCloud(){cloudSession=null;forgetSession('cloud');}
 let loading:Promise<void>|null=null;
-export function gmailSession(){return session&&session.expires>Date.now()?session:null;}
+export function gmailSession(){if(!sessionMatches(session))session=restoreSession('gmail');return sessionMatches(session)?session:null;}
 export function loadGoogleIdentity(){if((window as any).google?.accounts?.oauth2)return Promise.resolve();return loading||=(new Promise<void>((resolve,reject)=>{const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.async=true;s.onload=()=>resolve();s.onerror=()=>{loading=null;s.remove();reject(new Error('Google sign-in could not load. Reconnect and retry.'));};document.head.appendChild(s);}));}
 export function connectGmail(clientId:string,email:string,mode:'gmail'|'cloud'='gmail'):Promise<string>{
  if(!/^[\w.-]+\.apps\.googleusercontent\.com$/.test(clientId))return Promise.reject(new Error('Set up the Google OAuth Client ID in Company & email first.'));
  const oauth=(window as any).google?.accounts?.oauth2;if(!oauth)return Promise.reject(new Error('Google sign-in is loading. Please retry Connect Gmail.'));
- return new Promise((resolve,reject)=>{const client=oauth.initTokenClient({client_id:clientId,scope:mode==='cloud'?'https://www.googleapis.com/auth/drive.appdata openid email':scopes,include_granted_scopes:false,hint:email,callback:async(r:any)=>{try{if(r.error||!r.access_token)throw new Error(r.error_description||r.error||'Google did not authorise sending.');if(!oauth.hasGrantedAllScopes(r,mode==='cloud'?'https://www.googleapis.com/auth/drive.appdata':'https://www.googleapis.com/auth/gmail.send'))throw new Error(mode==='cloud'?'Cloud storage permission was not granted.':'Gmail send permission was not granted.');const info=await fetch('https://openidconnect.googleapis.com/v1/userinfo',{headers:{Authorization:'Bearer '+r.access_token}});const user=await info.json();if(!info.ok||!user.email_verified||user.email?.toLowerCase()!==email.toLowerCase()){oauth.revoke(r.access_token,()=>{});throw new Error('Choose the sender account '+email+'. No message was sent.');}const authorised={token:r.access_token,email:user.email,expires:Date.now()+(Number(r.expires_in)||3600)*1000-60000};if(mode==='cloud')cloudSession=authorised;else session=authorised;resolve(user.email);}catch(e){reject(e);}},error_callback:(e:any)=>reject(new Error(e.type==='popup_closed'?'Google sign-in was cancelled.':'Allow the Google sign-in popup and try again.'))});client.requestAccessToken({prompt:'select_account'});});
+ return new Promise((resolve,reject)=>{const client=oauth.initTokenClient({client_id:clientId,scope:mode==='cloud'?'https://www.googleapis.com/auth/drive.appdata openid email':scopes,include_granted_scopes:false,hint:email,callback:async(r:any)=>{try{if(r.error||!r.access_token)throw new Error(r.error_description||r.error||'Google did not authorise sending.');if(!oauth.hasGrantedAllScopes(r,mode==='cloud'?'https://www.googleapis.com/auth/drive.appdata':'https://www.googleapis.com/auth/gmail.send'))throw new Error(mode==='cloud'?'Cloud storage permission was not granted.':'Gmail send permission was not granted.');const info=await fetch('https://openidconnect.googleapis.com/v1/userinfo',{headers:{Authorization:'Bearer '+r.access_token}});const user=await info.json();if(!info.ok||!user.email_verified||user.email?.toLowerCase()!==email.toLowerCase()){oauth.revoke(r.access_token,()=>{});throw new Error('Choose the sender account '+email+'. No message was sent.');}const authorised={clientId,token:r.access_token,email:user.email,expires:Date.now()+Math.min(3600,Math.max(60,Number(r.expires_in)||3600))*1000-60000};if(mode==='cloud')cloudSession=authorised;else session=authorised;saveSession(mode,authorised);resolve(user.email);}catch(e){reject(e);}},error_callback:(e:any)=>reject(new Error(e.type==='popup_closed'?'Google sign-in was cancelled.':'Allow the Google sign-in popup and try again.'))});client.requestAccessToken({prompt:'',hint:email});});
 }
-export function disconnectGmail(){const old=session;session=null;if(old)(window as any).google?.accounts?.oauth2?.revoke(old.token,()=>{});}
+export function disconnectGmail(){session=null;forgetSession('gmail');}
 export const bytesBase64=(bytes:Uint8Array)=>{let s='';for(let n=0;n<bytes.length;n+=8192)s+=String.fromCharCode(...bytes.subarray(n,n+8192));return btoa(s);};
 const encode=(s:string)=>bytesBase64(new TextEncoder().encode(s));
 export async function gmailRaw({from,to,subject,message,zip,batchId}:{from:string;to:string;subject:string;message:string;zip:Blob;batchId:string}){
