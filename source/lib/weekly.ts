@@ -9,4 +9,12 @@ export function weeklyInspections(records:RecordItem[],projectId:string,start:st
 export function weeklyDays(report:WeeklyReport,inspections:Inspection[]){return weekDates(report.weekStart).map(date=>({date,note:report.days.find(d=>d.date===date),inspections:inspections.filter(i=>(i.workDate||i.date)===date)}));}
 export function weeklyStatus(i:Inspection){return i.status==='Pass'?'Pass':'Pending';}
 export function weeklyStage(i:Inspection){return i.stage==='Metal framing'||i.stage==='Framing & isolation'?'Metal framing':i.stage==='Boarding & sealing'?'Plasterboard':i.stage;}
-export function weeklyInspectionText(i:Inspection){return `${weeklyStage(i)} / ${i.wallType} / ${i.floor} / ${i.location||'Location not recorded'} - ${weeklyStatus(i)}. ${i.reference}. Drawing ${i.drawingSnapshot.reference}, rev ${i.drawingSnapshot.revision}, page ${i.pin.page}; pin ${Math.round(i.pin.x*100)}%, ${Math.round(i.pin.y*100)}%. ${i.workDate?'Work date recorded; inspected '+i.date:'Inspection date; work completion date not separately recorded'}.${i.defects?' Defects: '+i.defects:''}${i.corrective?' Action: '+i.corrective:''}${i.comments?' Note: '+i.comments:''}`;}
+export function weeklyLocation(i:Inspection){
+ const floor=({OB1:'Oxendon Basement',GF:'Ground Floor',MO1:'Mezzanine'} as Record<string,string>)[i.floor]||i.floor;
+ return i.location?(i.location.toLowerCase().includes(floor.toLowerCase())?i.location:floor+' - '+i.location):floor;
+}
+export function weeklyInspectionText(i:Inspection){
+ const work=i.wallType==='IWL-3'?(weeklyStage(i)==='Metal framing'?'Window reveal framing':'Window reveal plasterboard'):weeklyStage(i);
+ const checked=i.workDate&&i.workDate!==i.date?' Checked on '+new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'}).format(new Date(i.date+'T12:00:00Z'))+'.':'';
+ return `${weeklyLocation(i)}: ${work.toLowerCase()} inspected. ${weeklyStatus(i)==='Pass'?'Inspection passed.':'Inspection still pending.'}${checked}${i.comments?' '+i.comments:''}`;
+}

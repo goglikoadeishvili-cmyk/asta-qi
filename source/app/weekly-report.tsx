@@ -1,7 +1,7 @@
 import React,{useEffect,useState,useRef} from 'react';
 import {Download,ChevronLeft,ChevronRight,Save} from 'lucide-react';
 import type {RecordItem,Project,Settings,WeeklyReport,WeeklyDay} from '../lib/model';
-import {dateKey,monday,shiftDate,newWeekly,weeklyInspections,weeklyDays,weeklyStage,weeklyStatus} from '../lib/weekly';
+import {dateKey,monday,shiftDate,newWeekly,weeklyInspections,weeklyDays,weeklyStage,weeklyStatus,weeklyInspectionText} from '../lib/weekly';
 import {download} from '../lib/archive';
 import {makeWeeklyReport} from '../lib/weekly-pdf';
 export default function WeeklyReports({records,project,settings,busy,run,ensure,save,onInspection,onDirty}: {records:RecordItem[];project:Project;settings:Settings;busy:boolean;run:(label:string,fn:()=>Promise<any>)=>Promise<void>;ensure:(r:WeeklyReport)=>Promise<void>;save:(r:WeeklyReport,expected:number)=>Promise<void>;onInspection:(id:string)=>void;onDirty:(dirty:boolean)=>void}){
@@ -26,9 +26,9 @@ function WeeklyEditor({report,records,project,settings,busy,run,save,onInspectio
  return <><div className="attachment"><div><strong>ACL · Weekly Report</strong><small>{draft.weekStart} – {shiftDate(draft.weekStart,6)} · {items.length} inspections · {dirty?'Unsaved notes':'Saved notes'}</small></div></div><label>Prepared for / client<input value={draft.preparedFor||''} placeholder={project.preparedFor||settings.preparedFor||'Client company name'} onChange={e=>set('preparedFor',e.target.value)}/></label>
  <div className="weekly-days">{days.map(d=><button key={d.date} className={day===d.date?'active':''} onClick={()=>Day(d.date)}><strong>{new Intl.DateTimeFormat('en-GB',{weekday:'short',timeZone:'UTC'}).format(new Date(d.date+'T12:00:00Z'))}</strong><small>{d.inspections.length} checks</small></button>)}</div>
  <h3>{day} · Daily record</h3><p className="hint">Dates stay factual. To record earlier work, open its inspection and set “Work performed date”. No inspection does not mean no work was done.</p>
- {days.find(d=>d.date===day)!.inspections.map(i=><button key={i.id} className="list-row" disabled={dirty||busy} onClick={()=>onInspection(i.id)}><span className="row-copy"><strong>{weeklyStage(i)} · {i.wallType} · {i.location}</strong><small>{i.reference} · {i.floor} · {weeklyStatus(i)}{i.workDate?' · Work date recorded':' · Inspection date'}</small></span><ChevronRight size={17}/></button>)}
+ {days.find(d=>d.date===day)!.inspections.map(i=><button key={i.id} className="list-row" disabled={dirty||busy} onClick={()=>onInspection(i.id)}><span className="row-copy"><strong>{weeklyInspectionText(i)}</strong><small>Open inspection</small></span><ChevronRight size={17}/></button>)}
  {!days.find(d=>d.date===day)!.inspections.length&&<p className="hint">No inspection recorded for this day.</p>}
- <label>Work done / progress<textarea value={note.work} placeholder="Briefly record actual work, area and any measured quantity." onChange={e=>editDay('work',e.target.value)}/></label>
+ <label>Additional work / progress (optional)<textarea value={note.work} placeholder="Inspections are added automatically. Only add other work or progress here." onChange={e=>editDay('work',e.target.value)}/></label>
  <label>Deliveries received<textarea value={note.deliveries} placeholder="Material, quantity, supplier; or record no delivery if confirmed." onChange={e=>editDay('deliveries',e.target.value)}/></label>
  <details className="specification-details"><summary>Labour, delays & safety (optional)</summary>{([['labour','Labour on site'],['issues','Delays / issues / action owner'],['safety','Health & safety observations']] as const).map(([key,label])=><label key={key}>{label}<textarea value={note[key]} onChange={e=>editDay(key,e.target.value)}/></label>)}</details>
  <label>Planned for next week<textarea value={draft.nextWeek} onChange={e=>set('nextWeek',e.target.value)}/></label>

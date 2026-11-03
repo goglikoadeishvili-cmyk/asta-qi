@@ -1,6 +1,6 @@
 import {PDFDocument,StandardFonts,rgb} from 'pdf-lib';
 import type {Inspection,WeeklyReport,Project,Settings} from './model';
-import {shiftDate,weeklyDays,weeklyInspectionText,weeklyStatus} from './weekly';
+import {shiftDate,weeklyDays,weeklyInspectionText,weeklyStatus,weeklyLocation} from './weekly';
 export async function makeWeeklyReport(report:WeeklyReport,items:Inspection[],project:Project,settings:Settings,logoBytes?:ArrayBuffer){
  const doc=await PDFDocument.create(),font=await doc.embedFont(StandardFonts.Helvetica),bold=await doc.embedFont(StandardFonts.HelveticaBold);
  doc.setTitle('ACL Weekly Report - '+project.name+' - '+report.weekStart);doc.setAuthor('ACL');doc.setCreator('ASTA QI');
@@ -17,15 +17,15 @@ export async function makeWeeklyReport(report:WeeklyReport,items:Inspection[],pr
  start(true);
  await text(project.name,14,true);await text('Prepared for: '+(report.preparedFor||project.preparedFor||settings.preparedFor||'Not recorded'),9);await text('Reporting period: '+report.weekStart+' to '+shiftDate(report.weekStart,6)+' | Friday: '+shiftDate(report.weekStart,4),9);
  await text('Prepared by: '+settings.inspector+' | Company: ACL | Generated: '+new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',dateStyle:'medium'}).format(new Date()),9);
- y-=8;const passed=items.filter(i=>weeklyStatus(i)==='Pass').length;await text(items.length+' inspection records | '+passed+' Pass | '+(items.length-passed)+' Pending',9,true);
- await text('Inspection records show the work checked at each location. Pass does not certify completion of an entire area. Blank days mean no entry recorded.',8,false,muted);
+ y-=8;const passed=items.filter(i=>weeklyStatus(i)==='Pass').length;await text(items.length+' inspections | '+passed+' passed | '+(items.length-passed)+' pending',9,true);
+ await text('Results relate to the locations inspected. Entries use the recorded work date where available, otherwise the inspection date.',8,false,muted);
  await heading('1  DAILY WORK AND INSPECTIONS');
  for(const day of weeklyDays(report,items)){
   const active=day.inspections.length||day.note&&Object.entries(day.note).some(([k,v])=>k!=='date'&&v.trim());
   if(day.date>shiftDate(report.weekStart,4)&&!active)continue;
   if(y<115)start();y-=7;
   await text(new Intl.DateTimeFormat('en-GB',{weekday:'long',timeZone:'UTC'}).format(new Date(day.date+'T12:00:00Z'))+' - '+day.date,10,true);
-  if(day.note?.work)await text('Work recorded: '+day.note.work);
+  if(day.note?.work)await text(day.note.work);
   if(!day.inspections.length&&!day.note?.work)await text('No work or inspection entry recorded.',8,false,muted);
   for(const i of day.inspections)await text(weeklyInspectionText(i),8.5);
   if(day.note?.deliveries)await text('Deliveries: '+day.note.deliveries);
@@ -33,7 +33,7 @@ export async function makeWeeklyReport(report:WeeklyReport,items:Inspection[],pr
  }
  await heading('2  DELAYS AND OUTSTANDING ITEMS');
  const delays=report.days.filter(d=>d.issues.trim());for(const day of delays)await text(day.date+' - '+day.issues);
- const defects=items.filter(i=>i.defects||weeklyStatus(i)==='Pending');for(const i of defects)await text(i.reference+' / '+i.location+': '+(i.defects||'Inspection pending; completion not confirmed.')+(i.corrective?' Action: '+i.corrective:''));
+ const defects=items.filter(i=>i.defects||weeklyStatus(i)==='Pending');for(const i of defects)await text(weeklyLocation(i)+': '+(i.defects||'Inspection still pending.')+(i.corrective?' Action: '+i.corrective:''));
  if(!delays.length&&!defects.length)await text('No delay or outstanding-item entry recorded.',9,false,muted);
  await heading('3  HEALTH AND SAFETY');const safety=report.days.filter(d=>d.safety.trim());for(const day of safety)await text(day.date+' - '+day.safety);if(!safety.length)await text('No health and safety entry recorded.',9,false,muted);
  await heading('4  PLANNED FOR NEXT WEEK');await text(report.nextWeek||'Not recorded.');

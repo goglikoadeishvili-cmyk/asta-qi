@@ -171,7 +171,7 @@ test('weekly reporting rolls on London Mondays across DST and year boundaries wi
  const found=weeklyInspections(rows,'p','2026-11-02');assert.equal(found.length,2);
  const days=weeklyDays(newWeekly('p','2026-11-03'),found);
  assert.equal(days[0].inspections.length,1);assert.equal(days[1].inspections.length,1);assert.equal(days[2].inspections.length,0);
- assert.match(weeklyInspectionText(base),/Inspection date; work completion date not separately recorded/);
- assert.match(weeklyInspectionText({...base,workDate:'2026-11-02'}),/inspected 2026-11-03/);
+ assert.match(weeklyInspectionText(base),/metal framing inspected. Inspection passed/);assert.doesNotMatch(weeklyInspectionText(base),/QA-TEST|IWL-1|Drawing|rev |pin |%/);
+ assert.match(weeklyInspectionText({...base,workDate:'2026-11-02'}),/Checked on 3 Nov 2026/);
  assert.equal(shiftDate('2026-12-31',1),'2027-01-01');
 });
