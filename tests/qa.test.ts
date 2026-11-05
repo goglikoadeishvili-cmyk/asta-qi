@@ -234,3 +234,21 @@ test('explicit local cleanup frees only selected evidence, protects other projec
  assert.throws(()=>planLocalInspectionCleanup(records,files,[],'p',[{id:selected.id,version:3}]),/changed/);
  assert.throws(()=>planLocalInspectionCleanup(records,files,[],'p',[]),/changed/);
 });
+
+import {partitionReports,sendPreparedParts} from '../source/lib/email-parts';
+test('twenty PDFs are automatically grouped under the email limit with no missing or changed reports',async()=>{
+ const pdfs=Array.from({length:20},(_,n)=>({name:'Inspection — '+n+'.pdf',blob:new Blob(['%PDF-1.7\n'+String(n).repeat(450)])}));
+ const parts=await partitionReports(pdfs,2600);assert.ok(parts.length>1);const seen:number[]=[];
+ for(const part of parts){assert.ok(part.blob.size<=2600);const zip=await JSZip.loadAsync(await part.blob.arrayBuffer());for(const n of part.indexes){seen.push(n);assert.deepEqual(await zip.file(pdfs[n].name)!.async('uint8array'),new Uint8Array(await pdfs[n].blob.arrayBuffer()));}}
+ assert.deepEqual(seen,Array.from({length:20},(_,n)=>n));
+ await assert.rejects(()=>partitionReports([{name:'Too large.pdf',blob:new Blob([new Uint8Array(3000)])}],2600),/One inspection/);
+});
+test('multipart email never resends confirmed parts and stops before an uncertain part',async()=>{
+ const parts=Array.from({length:3},(_,n)=>({batch:{id:'part-'+n,status:'prepared',inspectionIds:['i'+n]} as any,blob:new Blob(['zip'])}));let calls:string[]=[];
+ await assert.rejects(()=>sendPreparedParts(parts,async p=>{calls.push(p.batch.id);return p.batch.id==='part-0'?{...p.batch,status:'accepted',providerId:'message-0'}:{...p.batch,status:'unknown',error:'Lost response'};},async()=>{}),/Lost response/);
+ assert.deepEqual(calls,['part-0','part-1']);calls=[];
+ await assert.rejects(()=>sendPreparedParts(parts,async p=>{calls.push(p.batch.id);return {...p.batch,status:'accepted',providerId:'m'};},async()=>{}),/Check Gmail Sent/);assert.deepEqual(calls,[]);
+ parts[1].batch={...parts[1].batch,status:'manual-sent'};
+ await sendPreparedParts(parts,async p=>{calls.push(p.batch.id);return {...p.batch,status:'accepted',providerId:'last'};},async()=>{});
+ assert.deepEqual(calls,['part-2']);
+});
