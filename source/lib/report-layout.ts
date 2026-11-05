@@ -13,5 +13,5 @@ export function evidencePhotoHeight(contentStartY:number,textHeight:number,rows:
  if(rows<1)return 150;
  if(rows>3)return 140;
  const room=contentStartY-38-textHeight-rows*21-extraHeight-10;
- return Math.max(96,Math.min(160,Math.floor(room/rows)));
+ return Math.max(80,Math.min(160,Math.floor(room/rows)));
 }

@@ -18,18 +18,18 @@ test('provider rejection stays failed; network uncertainty cannot mark sent or b
 test('oversize attachment offers link; secure link mode uses no attachment',async()=>{const e={...env(),ATTACHMENT_LIMIT_MB:'0.0001'},bytes=await zip(),original=globalThis.fetch;assert.equal((await handle(await req(bytes),e)).status,413);let calls=0;globalThis.fetch=async(_url,options)=>{calls++;const payload=JSON.parse(String(options?.body));assert.equal(payload.attachments.length,0);assert.match(payload.text,/\/download\/[a-f0-9]{64}/);return Response.json({id:'accepted-link'});};try{assert.equal((await handle(await req(bytes,true),e)).status,200);assert.equal(calls,1);}finally{globalThis.fetch=original;}});
 test('gateway blocks unauthorised requests and non-PDF ZIP contents',async()=>{const e=env();assert.equal((await handle(new Request('https://gateway.example.test/send',{method:'POST'}),e)).status,401);const z=new JSZip();z.file('malware.html','hello');const bytes=await z.generateAsync({type:'uint8array'});assert.throws(()=>validateZip(bytes));});
 
-test('tracks precede framing, each question has detailed answers and reference pictures are not site evidence',()=>{for(const id of ['IWL-1','IWL-2']){const list=questions(id,stages[0]);assert.deepEqual(list.map(q=>q.id),['tracks','metal-frame']);assert.equal(list[0].referenceIds,undefined);assert.match(list[0].expected,/2 layers of FireLine plasterboard fire strips fixed to the top track/);assert.ok(list[0].expected.indexOf('Top track:')<list[0].expected.indexOf('Bottom track:'));assert.match(list[0].expected,/2 × 12.5 mm blue.*25 mm/);assert.match(list[0].expected,/1 × 12.5 mm black CineWALL PRO/);assert.match(list[1].expected,/600 mm centres/);assert.match(list[1].expected,id==='IWL-1'?/92 mm I-studs.*updated project detail/:/94 mm U.*92 mm I-studs/);assert.ok(answerOptions(list[0]).every(a=>a.result!=='N/A'));}assert.doesNotMatch(questions('IWS-2',stages[0])[1].expected,/600 mm centres/);});
+test('head and base tracks have separate washer checks before framing',()=>{for(const id of ['IWL-1','IWL-2','IWS-1']){const list=questions(id,stages[0]);assert.deepEqual(list.map(q=>q.id),['tracks','base-tracks','metal-frame']);assert.match(list[0].expected,/2 FireLine/);assert.match(list[0].expected,/1 x 12.5 mm black/);assert.match(list[0].expected,/washers at all head fixings/);assert.match(list[0].expected,/2 rows of acoustic sealant/);assert.match(list[1].expected,/2 x 12.5 mm blue.*25 mm/);assert.match(list[1].expected,/washers at all base fixings/);}assert.doesNotMatch(questions('IWS-2',stages[0])[1].expected,/600 mm centres/);});
 test('boarding asks about fixed plates without mandatory measurements or manufacturer wording',()=>{const q=questions('IWL-2',stages[2]);assert.deepEqual(q.map(q=>q.id),['pre-board-plate','boarding','final-plate']);assert.ok(!q[0].requiresHeadMeasurement);assert.match(q[0].expected,/securely fixed/);assert.doesNotMatch(q.map(x=>x.expected).join(' '),/Knauf|ALPHA|head offset|150 mm|70 mm/);});
 test('Pending reopens and can become Pass with existing inspection photos, without a photo quota per question',()=>{const i={...sample(),templateVersion:2,stage:stages[2],answers:questions('IWL-2',stages[2]).map(q=>({...q,answer:q.expected,result:'Pass'})),photos:[{id:'one',questionId:'pre-board-plate'},{id:'two',questionId:'boarding'}],status:'Pending'} as any;validateInspection(i);i.status='Pass';validateInspection(i);validateInspection({...i,photos:[i.photos[0]]});assert.throws(()=>validateInspection({...i,photos:[]}),/evidence photo/);validateInspection({...i,status:'Pending',photos:[],answers:[],description:''});});
-test('boarding refers to manufacturer guidance instead of claiming its installation detail is on the drawing',()=>{const q=questions('IWL-2',stages[2])[1];assert.match(q.question,/manufacturer/);assert.match(q.expected,/manufacturer/);assert.doesNotMatch(q.expected,/drawing|Knauf|ALPHA/);});
+test('boarding refers to manufacturer guidance instead of claiming its installation detail is on the drawing',()=>{const q=questions('IWL-2',stages[2])[1];assert.match(q.question,/manufacturer/);assert.match(q.expected,/manufacturer/);assert.doesNotMatch(q.expected,/Knauf|ALPHA/);assert.match(q.expected,/5-7 mm.*FR acoustic sealant/);});
 test('project inspection list retains framing and boarding across different floors and statuses',()=>{const metal={...sample(),id:'metal',projectId:'p',floor:'MO1',stage:stages[0],status:'Pass'};const board={...sample(),id:'board',projectId:'p',floor:'GF',stage:stages[2],status:'Pending'};const other={...board,id:'other',projectId:'elsewhere'};const records=[metal,board,other] as any;assert.deepEqual(inspectionsForProject(records,'p').map(i=>i.id),['metal','board']);board.status='Pass';assert.deepEqual(inspectionsForProject(records,'p').map(i=>i.id),['metal','board']);assert.equal(metal.status,'Pass');});
 test('legacy project migration preserves original inspection / pin data and project scope blocks cross-project records',()=>{const old={...sample(),version:3,projectId:undefined};const updates=migrateProjects([old]);const migrated=updates.find(r=>r.id===old.id) as any;assert.equal(migrated.projectId,DEFAULT_PROJECT_ID);assert.deepEqual(migrated.pin,old.pin);assert.equal(migrated.version,3);const d={id:'d',kind:'drawing',floor:'OB1',page:1,projectId:'project-a'} as any;assert.throws(()=>assertProjectInspection({...old,projectId:'project-b'},[d],'project-a'));assertProjectInspection({...old,projectId:'project-a'},[d],'project-a');const generic=questions('Wall X',stages[0],'generic','Own project specification, measured centres to drawing');assert.doesNotMatch(generic.map(q=>q.expected).join(' '),/NEOS|CineWALL|600 mm/);});
 test('touch marker counter-scale keeps a small visible pin when the browser is pinch-zoomed; desktop stays unchanged',()=>{for(const zoom of [1,2,5,10])assert.equal(18*zoom*pinScale(zoom,true),18);assert.equal(pinScale(5,false),1);assert.equal(pinScale(NaN,true),1);});
 test('pin location uses the correct floor grid and avoids invented room names / uncalibrated grids',()=>{const drawing={floor:'MO1',reference:'TIG-RYD-00-00-DDR-A-10-0103',revision:'C1',fileId:'809d54646a8c4de3ebb267f1ce3debb3673d45cab345dcdf0fc12e898cc236cd'} as any;assert.equal(locationForPin(drawing,{x:.4,y:.42,page:3}),'Mezzanine MO1 · Grid E–F / 9–10');assert.match(locationForPin(drawing,{x:.5,y:.5,page:3}),/Grid F–G \/ 10–11/);assert.match(locationForPin({...drawing,revision:'C2'},{x:.4,y:.42,page:3}),/Drawing position X 40.0% \/ Y 42.0%/);assert.match(locationForPin(drawing,{x:.9,y:.5,page:3}),/Drawing position/);});
 
-test('moving into boarding retains the earlier framing checks and requires their evidence too',()=>{const earlier=questions('IWL-2',stages[0]).map(q=>({...q,answer:q.expected,result:'Pass'}));const active=questions('IWL-2',stages[2]).map(q=>({...q,answer:q.expected,result:'Pass',headOffsetMm:'250',detailReference:'TEST DETAIL'}));const i={...sample(),templateVersion:2,stage:stages[2],sections:{[stages[0]]:earlier},answers:active,photos:[...earlier,...active].map(q=>({id:q.id,questionId:q.id}))} as any;assert.equal(allInspectionAnswers(i).length,5);assert.deepEqual(reportInspectionAnswers(i).map(a=>a.id),active.map(a=>a.id));validateInspection(i);i.photos=i.photos.filter((p:any)=>p.questionId!=='tracks');validateInspection(i);});
+test('moving into boarding retains the earlier framing checks and requires their evidence too',()=>{const earlier=questions('IWL-2',stages[0]).map(q=>({...q,answer:q.expected,result:'Pass'}));const active=questions('IWL-2',stages[2]).map(q=>({...q,answer:q.expected,result:'Pass',headOffsetMm:'250',detailReference:'TEST DETAIL'}));const i={...sample(),templateVersion:2,stage:stages[2],sections:{[stages[0]]:earlier},answers:active,photos:[...earlier,...active].map(q=>({id:q.id,questionId:q.id}))} as any;assert.equal(allInspectionAnswers(i).length,6);assert.deepEqual(reportInspectionAnswers(i).map(a=>a.id),active.map(a=>a.id));validateInspection(i);i.photos=i.photos.filter((p:any)=>p.questionId!=='tracks');validateInspection(i);});
 
-test('framing and boarding at the same pin are independent records with no copied evidence',()=>{const drawing={id:'drawing-a',floor:'MO1',page:3,name:'Current plan',reference:'A-103',revision:'C2',projectId:'project-a'} as any;const project={id:'project-a',qaProfile:'neos'} as any;const pin={x:.4,y:.5,page:3};const frame=createInspectionAt(drawing,project,pin,stages[0]);frame.photos=[{id:'original-site-photo',questionId:'tracks'}] as any;frame.answers=questions('IWL-2',stages[0]).map(q=>({...q,answer:q.expected,result:'Pass'}));const board=createInspectionAt(drawing,project,pin,stages[2]);assert.notEqual(board.id,frame.id);assert.notEqual(board.reference,frame.reference);assert.deepEqual(board.pin,frame.pin);assert.equal(board.drawingId,frame.drawingId);assert.equal(board.stage,stages[2]);assert.equal(board.photos.length,0);assert.equal(board.answers.length,0);assert.equal(board.sections,undefined);assert.equal(frame.answers.length,2);assert.equal(frame.photos.length,1);assert.equal(frame.stage,stages[0]);});
+test('framing and boarding at the same pin are independent records with no copied evidence',()=>{const drawing={id:'drawing-a',floor:'MO1',page:3,name:'Current plan',reference:'A-103',revision:'C2',projectId:'project-a'} as any;const project={id:'project-a',qaProfile:'neos'} as any;const pin={x:.4,y:.5,page:3};const frame=createInspectionAt(drawing,project,pin,stages[0]);frame.photos=[{id:'original-site-photo',questionId:'tracks'}] as any;frame.answers=questions('IWL-2',stages[0]).map(q=>({...q,answer:q.expected,result:'Pass'}));const board=createInspectionAt(drawing,project,pin,stages[2]);assert.notEqual(board.id,frame.id);assert.notEqual(board.reference,frame.reference);assert.deepEqual(board.pin,frame.pin);assert.equal(board.drawingId,frame.drawingId);assert.equal(board.stage,stages[2]);assert.equal(board.photos.length,0);assert.equal(board.answers.length,0);assert.equal(board.sections,undefined);assert.equal(frame.answers.length,3);assert.equal(frame.photos.length,1);assert.equal(frame.stage,stages[0]);});
 
 import {prepareBatch} from '../source/lib/archive';
 import {gmailRaw,sendGmail,GmailSendError,GMAIL_ZIP_LIMIT,connectGmail} from '../source/lib/gmail';
@@ -87,6 +87,9 @@ test('real PDF generator fits three checks and nine photos on one A4 and safely 
   const boarding={...base,stage:stages[2],answers:boardAnswers,photos:boardAnswers.flatMap((q,n)=>Array.from({length:3},(_,p)=>({id:'board-'+n+'-'+p,name:'photo.jpg',caption:'',questionId:q.id})))};
   const compact=await PDFDocument.load(await(await makeReport(boarding,drawing,settings,urlFor,project,render)).arrayBuffer());
   assert.equal(compact.getPageCount(),1,'three current boarding questions and three photos each fit one A4');
+  const metalNine={...base,answers:questions('IWL-2',stages[0]).map(q=>({...q,answer:q.expected,result:'Pass'}))};
+  metalNine.photos=metalNine.answers.flatMap((q:any,n:number)=>Array.from({length:3},(_,p)=>({id:'metal-'+n+'-'+p,name:'photo.jpg',caption:'',questionId:q.id})));
+  assert.equal((await PDFDocument.load(await(await makeReport(metalNine,drawing,settings,urlFor,project,render)).arrayBuffer())).getPageCount(),1,'three metal questions with nine photos fit one A4');
   const multiple={...base,photos:Array.from({length:9},(_,n)=>({id:'pic-'+n,name:'original-'+n+'.jpg',caption:'',questionId:n<5?'tracks':'metal-frame'}))};
   const overflowing=await makeReport(multiple,drawing,settings,urlFor,project,render);
   const second=await PDFDocument.load(await overflowing.arrayBuffer());
@@ -129,7 +132,7 @@ test('pre-boarding combines the top flat plate with the selected wall insulation
 
 test('IWL-1 uses the company updated 92 mm studs without guessing a replacement track width',()=>{
  const wall=wallTypes.find(w=>w.id==='IWL-1')!;assert.match(wall.build,/92 mm I-stud/);assert.doesNotMatch([wall.build,wall.detail,wall.issue].join(' '),/146 mm|148 mm/);
- const frame=questions('IWL-1',stages[0])[1];assert.match(frame.question,/92 mm/);assert.match(frame.question,/updated project requirements/);assert.match(frame.expected,/92 mm I-studs at 600 mm centres/);assert.doesNotMatch(frame.expected,/146 mm|148 mm|94 mm/);
+ const frame=questions('IWL-1',stages[0]).find(q=>q.id==='metal-frame')!;assert.match(frame.question,/92 mm/);assert.match(frame.question,/updated project requirements/);assert.match(frame.expected,/92 mm I-studs at 600 mm centres/);assert.doesNotMatch(frame.expected,/146 mm|148 mm|94 mm/);
 });
 
 test('sent duplicate cleanup preserves original evidence, drawings and uncertain exports',async()=>{
@@ -151,10 +154,10 @@ test('each wall keeps its own insulation, layers, reveal brackets and track syst
   else{for(const q of [...metal,...board])assert.doesNotMatch(q.question+' '+q.expected,/\binsulation\b/i);}
   if(wall.id==='IWL-3'){
    assert.match(metal[0].expected,/92 mm/);assert.match(metal[1].question,/acoustic brackets/);
-   assert.match(board[1].expected,/Four 15 mm/);
+   assert.match(board[1].expected,/4 x 15 mm/);
    assert.doesNotMatch(JSON.stringify([...metal,...board]),/CineWALL|Stravilink|146 mm|100 mm/);
   }
-  if(wall.id.startsWith('IWS-'))assert.doesNotMatch(metal[0].expected,/CineWALL/);
+  if(wall.id==='IWS-2')assert.doesNotMatch(metal[0].expected,/CineWALL/);
   if(wall.id==='IWS-2'){assert.match(board[1].expected,/30 mm coreboard/);assert.doesNotMatch(board[0].expected,/100 mm/);}
   if(wall.id==='BLK-1')assert.doesNotMatch(board[0].question,/plasterboard/);
  }
@@ -189,4 +192,27 @@ test('refresh recovery retains partial answers and photos as Pending, preserving
  const restored=recoverInspection(draft,{...original,comments:'Previously saved'});
  assert.equal(restored.id,original.id);assert.equal(restored.status,'Pending');assert.equal(restored.version,4);assert.deepEqual(restored.photos,original.photos);assert.deepEqual(restored.answers,original.answers);
  const conflict=recoverInspection(draft,{...original,version:5});assert.notEqual(conflict.id,original.id);assert.match(conflict.reference,/RECOVERY/);assert.equal(conflict.status,'Pending');
+});
+
+import {editableInspection} from '../source/lib/checklist-update';
+test('site detail checklist stays within three checks and applies gaps to the correct layer count',()=>{
+ for(const wall of wallTypes){for(const stage of [stages[0],stages[2]])assert.ok(questions(wall.id,stage).length<=3);}
+ for(const id of ['IWL-1','IWL-2','IWL-3']){
+  const board=questions(id,stages[2]);assert.match(board[1].question,/all four.*5-7 mm/);assert.match(board[1].expected,/FR acoustic sealant/);
+  assert.match(board[2].question,/after all boarding/);assert.match(board[2].expected,/After all board layers.*over the final layer/);
+ }
+ assert.match(questions('IWS-1',stages[2])[1].question,/both plasterboard layers on each face/);
+ assert.doesNotMatch(questions('IWL-3',stages[2]).map(q=>q.expected).join(' '),/insulation|100 mm/);
+});
+test('expanded checks require fresh answers on an editable copy while preserving saved evidence and old answers',()=>{
+ const current=questions('IWL-2',stages[0]),old=current.filter(q=>q.id!=='base-tracks').map(q=>({...q,answer:q.expected,result:'Pass'}));
+ old[0]={...old[0],question:'Old tracks question',expected:'Old track answer',answer:'My saved site-specific answer'};
+ const saved={...sample(),templateVersion:2,stage:stages[0],wallType:'IWL-2',status:'Pass',answers:old,photos:[{id:'evidence',questionId:'tracks'}],sections:undefined} as any;
+ saved.answers.push({id:'old-extra',question:'Earlier check',answer:'Earlier site answer',expected:'Earlier site answer',result:'Pass',comment:''});
+ const before=JSON.stringify(saved),edited=editableInspection(saved);
+ assert.equal(JSON.stringify(saved),before);assert.equal(edited.status,'Pending');assert.deepEqual(edited.answers.map(q=>q.id),['tracks','base-tracks','metal-frame']);
+ assert.equal(edited.answers[0].answer,'');assert.equal(edited.answers[1].result,'Pending');assert.equal(edited.answers[2].answer,current[2].expected);
+ assert.ok(edited.legacyAnswers?.some(q=>q.answer==='My saved site-specific answer'));assert.ok(edited.legacyAnswers?.some(q=>q.answer==='Earlier site answer'));assert.deepEqual(edited.photos,saved.photos);
+ const verified={...edited,status:'Pass',answers:current.map(q=>({...q,answer:q.expected,result:'Pass'}))} as any;
+ assert.equal(editableInspection(verified).status,'Pass');
 });

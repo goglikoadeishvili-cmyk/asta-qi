@@ -53,15 +53,26 @@ export function questions(wallId:string,stage:string,profile:'neos'|'generic'='n
  make('tracks','Is the 92 mm window reveal metal framing correctly positioned and securely fixed?','Yes. The 92 mm window reveal metal framing is aligned and securely fixed in accordance with the project detail and applicable guidance. ',w.source),
  make('metal-frame','Are the correct acoustic brackets installed and securely fixed to the window reveal framing?','Yes. The specified acoustic brackets are correctly positioned and securely fixed to the 92 mm window reveal framing, in accordance with the project detail and manufacturer’s guidance.',w.source)
  ];
- if((wallId==='IWS-1'||wallId==='IWS-2')&&metal){const frame=legacyStageQuestion(wallId,stages[0])[0];return [
- make('tracks','Are the top and bottom tracks installed to the approved wall system detail?',`Yes. Top track: the specified head track, fire strips, isolation and deflection arrangement are installed to the approved ${wallId} detail. Bottom track: the specified base track, isolation and fixings are installed to the same approved system detail.`,w.source),
+ if(wallId==='IWS-2'&&metal){const frame=legacyStageQuestion(wallId,stages[0])[0];return [
+ make('tracks','Are the top and bottom tracks installed to the approved wall system detail?',`Yes. Top track: the specified head track, fire strips, isolation and deflection arrangement are installed to the approved IWS-2 detail. Bottom track: the specified base track, isolation and fixings are installed to the same approved system detail.`,w.source),
  {...frame,id:'metal-frame',section:stage}
  ];}
- if(metal){const frame=legacyStageQuestion(wallId,stages[0])[0];return [make('tracks','Are the top and bottom tracks installed correctly?',`Top track: 1 × 12.5 mm black CineWALL PRO isolation strip, with 2 layers of FireLine plasterboard fire strips fixed to the top track. Bottom track: 2 × 12.5 mm blue CineWALL LITE isolation strips (25 mm total). Both tracks are securely fixed; alignment and isolation are checked.`, 'Current project drawing.'),{...frame,id:'metal-frame',section:stage}];}
+ const siteSource='NEOS site-specific head/base detail; company FireLine strip instruction.';
+ if(metal){const frame=legacyStageQuestion(wallId,stages[0])[0];return [
+ make('tracks','Is the top track fitted with black isolation, two FireLine layers, acoustic washers and sealant?',
+ 'Yes. Top track: 1 x 12.5 mm black CineWALL PRO, 2 FireLine fire-strip layers, acoustic washers at all head fixings and 2 rows of acoustic sealant, as shown on the drawing.',siteSource),
+ make('base-tracks','Is the bottom track fitted with two blue isolation layers and acoustic washers?',
+ 'Yes. Bottom track: 2 x 12.5 mm blue CineWALL LITE (25 mm total), securely fixed with acoustic washers at all base fixings, as shown on the drawing.',siteSource),
+ {...frame,id:'metal-frame',section:stage}
+ ];}
+ const shaft=wallId==='IWS-2';
+ const layers=wallId==='IWS-1'?'2 x 15 mm plasterboard layers on each face':shaft?'3 x 15 mm plasterboard layers and 1 x 30 mm coreboard layer':'all 4 x 15 mm plasterboard layers';
  if(boarding)return [
- make('pre-board-plate',wallId==='IWL-3'?'Before boarding, are the acoustic brackets and required backing securely fixed?':preBoardQuestion,wallId==='IWL-3'?'Yes. The acoustic brackets and required backing are securely fixed to the 92 mm window reveal framing in accordance with the project detail and manufacturer’s guidance.':preBoardAnswer, w.source),
- make('boarding',`Are the specified plasterboard layers, joint stagger and screw fixings installed to the manufacturer’s guidance, with screws at maximum 300 mm centres?`,`Yes. ${wallId==='IWS-1'?'Two 15 mm plasterboard layers are installed on each face.':wallId==='IWS-2'?'Three 15 mm plasterboard layers and one 30 mm coreboard layer are installed to the approved shaftwall system.':'Four 15 mm plasterboard layers are installed.'} Joint stagger, seals and screw fixings follow the manufacturer’s guidance and recommendations, with screws at maximum 300 mm centres, or closer where required by the system.`, w.source),
- make('final-plate','Is the flat plate correctly installed at the plasterboard joints in accordance with the manufacturer’s guidance?',`Yes. The flat plate is correctly positioned and securely fixed at the plasterboard joints, in accordance with the manufacturer’s guidance and recommendations.`, 'Current project drawing and approved details.')
+ make('pre-board-plate',wallId==='IWL-3'?'Before boarding, are the acoustic brackets and required backing securely fixed?':preBoardQuestion,wallId==='IWL-3'?'Yes. The acoustic brackets and required backing are securely fixed to the 92 mm window reveal framing in accordance with the project detail and manufacturer’s guidance.':preBoardAnswer,w.source),
+ make('boarding',shaft?'Are the plasterboard layers, stagger and screw fixings installed to the manufacturer’s guidance, with screws at maximum 300 mm centres?':`Are ${wallId==='IWS-1'?'both plasterboard layers on each face':'all four plasterboard layers'} 5-7 mm above the floor, with sealed gaps, staggered joints and screws at maximum 300 mm centres to manufacturer’s guidance?`,
+ shaft?'Yes. Three 15 mm plasterboard layers and one 30 mm coreboard layer are installed to the approved shaftwall system. Joint stagger, seals and screw fixings follow manufacturer’s guidance, with screws at maximum 300 mm centres or closer where required.':`Yes. ${layers[0].toUpperCase()+layers.slice(1)} are 5-7 mm above the floor slab; the gaps are filled with FR acoustic sealant, as shown on the drawing. Joints are staggered and screws are at maximum 300 mm centres, or closer where required by manufacturer’s guidance.`,shaft?w.source:siteSource),
+ make('final-plate',shaft?'Is the flat plate correctly installed at the plasterboard joints in accordance with the manufacturer’s guidance?':'Are the joint flat plates secure and, after all boarding, is the top angle fixed over the final plasterboard layer?',
+ shaft?'Yes. The flat plate is correctly positioned and securely fixed at the plasterboard joints, in accordance with the manufacturer’s guidance and recommendations.':'Yes. Joint flat plates are correctly positioned and securely fixed. After all board layers are installed, the top angle is securely fixed over the final layer, as shown on the drawing and manufacturer’s guidance.',shaft?w.source:siteSource)
  ];
  return legacyStageQuestion(wallId,stage).map(q=>({...q,id:stage===stages[1]?'insulation':'final-check',section:stage}));
 }
