@@ -12,7 +12,7 @@ export async function makeReport(i:Inspection,drawing:Drawing,settings:Settings,
  if(i.drawingSnapshot.reference!==drawing.reference||i.drawingSnapshot.revision!==drawing.revision||i.pin.page!==drawing.page||i.pin.page!==i.drawingSnapshot.page)throw new Error('Inspection drawing reference/revision does not match its saved drawing.');
  const reference=reportReference(i.reference),title=inspectionTitle(i.stage);
  const doc=await PDFDocument.create();
- doc.setTitle(title+' - '+reference);doc.setAuthor('ACL');doc.setCreator('ASTA QI');
+ doc.setTitle(title+' - '+reference);doc.setAuthor('ACL');doc.setCreator('ASTA Quality Inspection');
  const font=await doc.embedFont(StandardFonts.Helvetica),bold=await doc.embedFont(StandardFonts.HelveticaBold);
  const ink=rgb(.07,.16,.28),muted=rgb(.40,.46,.54),blue=rgb(.10,.32,.58),pale=rgb(.94,.97,.99),rule=rgb(.83,.88,.92);
  const W=595.28,H=841.89,L=32,CW=W-2*L,BOTTOM=38;

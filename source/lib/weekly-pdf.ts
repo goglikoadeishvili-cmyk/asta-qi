@@ -3,7 +3,7 @@ import type {Inspection,WeeklyReport,Project,Settings} from './model';
 import {shiftDate,weeklyDays,weeklyInspectionText,weeklyStatus,weeklyLocation} from './weekly';
 export async function makeWeeklyReport(report:WeeklyReport,items:Inspection[],project:Project,settings:Settings,logoBytes?:ArrayBuffer){
  const doc=await PDFDocument.create(),font=await doc.embedFont(StandardFonts.Helvetica),bold=await doc.embedFont(StandardFonts.HelveticaBold);
- doc.setTitle('ACL Weekly Report - '+project.name+' - '+report.weekStart);doc.setAuthor('ACL');doc.setCreator('ASTA QI');
+ doc.setTitle('ACL Weekly Report - '+project.name+' - '+report.weekStart);doc.setAuthor('ACL');doc.setCreator('ASTA Quality Inspection');
  if(!logoBytes){const response=await fetch(import.meta.env.BASE_URL+'branding/acl-logo-v2.png');if(!response.ok)throw new Error('ACL logo is unavailable. Open the app online once before downloading the weekly PDF.');logoBytes=await response.arrayBuffer();}
  const logo=await doc.embedPng(logoBytes),W=595.28,H=841.89,L=36,CW=W-L*2,ink=rgb(.07,.16,.28),blue=rgb(.12,.32,.53),muted=rgb(.38,.45,.52),rule=rgb(.83,.88,.92);
  let page=doc.addPage([W,H]),y=0;
