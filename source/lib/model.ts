@@ -16,7 +16,7 @@ export interface WeeklyDay{date:string;work:string;deliveries:string;labour:stri
 export interface WeeklyReport{id:string;kind:'weekly';projectId:string;weekStart:string;days:WeeklyDay[];nextWeek:string;preparedFor:string;createdAt:string;updatedAt:string;version:number}
 export type RecordItem=Drawing|Inspection|Batch|Settings|Project|WeeklyReport;
 export const floors=[{id:'OB1',name:'Oxendon Basement',detail:'OB1',page:1,reference:'TIG-RYD-00-00-DDR-A-10-0099'},{id:'GF',name:'Ground Floor',detail:'GF1 / GF3',page:2,reference:'TIG-RYD-00-00-DDR-A-10-0102'},{id:'MO1',name:'Mezzanine',detail:'MO1',page:3,reference:'TIG-RYD-00-00-DDR-A-10-0103'}] as const;
-export const initialSettings:Settings={id:'settings',kind:'settings',name:'ASTA CONSTUCTION',inspector:'Goga',recipient:'',emailEndpoint:'',emailToken:'',gmailClientId:'454681087002-nd38egluu2gq8io2rfkc80gr1uf95af2.apps.googleusercontent.com',senderEmail:'goglikoadeishvili@gmail.com',reportingCompany:'ACL',preparedFor:''};
+export const initialSettings:Settings={id:'settings',kind:'settings',name:'ASTA Construction Ltd',inspector:'Goga',recipient:'',emailEndpoint:'',emailToken:'',gmailClientId:'454681087002-nd38egluu2gq8io2rfkc80gr1uf95af2.apps.googleusercontent.com',senderEmail:'goglikoadeishvili@gmail.com',reportingCompany:'ACL',preparedFor:''};
 export const uid=()=>crypto.randomUUID();
 export const now=()=>new Date().toISOString();
 export const today=()=>new Date().toLocaleDateString('en-CA');
@@ -40,3 +40,5 @@ export function validateInspection(i:Inspection,draft=false){
 export function assertProjectInspection(i:Inspection,drawings:Drawing[],projectId:string){const d=drawings.find(d=>d.id===i.drawingId);if(!d||projectOf(i)!==projectId||projectOf(d)!==projectId||i.floor!==d.floor||(i.templateVersion===2&&i.pin.page!==d.page))throw new Error('Inspection and drawing must belong to the selected project and floor.');}
 
 export function inspectionsForProject(records:RecordItem[],projectId:string|null){return records.filter((r):r is Inspection=>r.kind==='inspection'&&!r.deletedAt&&projectOf(r)===projectId);}
+
+export const companyName=(name:string)=>/^ASTA\s+(?:construction|constuction)(?:\s+(?:ltd\.?|limited))?$/i.test(name.trim())?'ASTA Construction Ltd':name;
