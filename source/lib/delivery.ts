@@ -29,3 +29,5 @@ export function planReportCleanup(records:RecordItem[],files:FileInfo[]){
  const remove=files.filter(f=>candidates.has(f.id)&&!protectedIds.has(f.id));
  return {fileIds:remove.map(f=>f.id),bytes:remove.reduce((sum,f)=>sum+f.size,0),records:sent.filter(b=>b.reportIds.some(id=>remove.some(f=>f.id===id))||remove.some(f=>f.id===b.zipId)).map(b=>({...b,reportIds:b.reportIds.filter(id=>!remove.some(f=>f.id===id)),zipId:remove.some(f=>f.id===b.zipId)?'':b.zipId,size:0,temporaryReports:true}))};
 }
+
+export function unconfirmedInspections(inspections:Inspection[],batches:Batch[]){return inspections.filter(i=>!batches.some(b=>isSent(b)&&b.inspectionIds.some((id,n)=>id===i.id&&b.versions[n]===i.version)));}

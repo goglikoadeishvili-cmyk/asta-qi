@@ -289,3 +289,12 @@ test('legacy finishing stage opens with Angle wording while retaining its photo 
 });
 
 test('explicitly skipped questions permit Pass without treating blank or failed checks as passed',()=>{const i=sample();i.answers[1]={...i.answers[1],answer:'Skipped by inspector',result:'Pending',skipped:true};validateInspection(i);assert.throws(()=>validateInspection({...i,answers:i.answers.map((a:any)=>({...a,skipped:true}))}));assert.throws(()=>validateInspection({...i,answers:i.answers.map((a:any,n:number)=>n===1?{...a,skipped:false,answer:''}:a)}));});
+
+import {unconfirmedInspections} from '../source/lib/delivery';
+test('deletion warning lists missing, uncertain and older-version sends but excludes confirmed current versions',()=>{
+ const items=Array.from({length:5},(_,n)=>({...sample(),id:'inspection-'+n,version:2}));
+ const batch=(n:number,status:string,version=2)=>({id:'b'+n,kind:'batch',inspectionIds:[items[n].id],versions:[version],status,providerId:status==='accepted'?'gmail-id':undefined}) as any;
+ const batches=[batch(0,'accepted'),batch(1,'manual-sent'),batch(2,'unknown'),batch(3,'accepted',1)];
+ assert.deepEqual(unconfirmedInspections(items,batches).map(i=>i.id),['inspection-2','inspection-3','inspection-4']);
+ assert.deepEqual(unconfirmedInspections([],batches),[]);
+});
