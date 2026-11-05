@@ -1,7 +1,8 @@
 import type {Answer} from './model';
 export const layoutName='Internal Wall Lay-outs - rev.C1-021126(1).pdf';
 export const specificationRef='TIG-RYD-SP-A-1005 P2 (Draft for Information, 15 Apr 2026)';
-export const FINISHING_STAGE='Hangers & mastic';
+export const FINISHING_STAGE='Angle & mastic';
+export const isFinishingStage=(stage:string)=>stage===FINISHING_STAGE||stage==='Hangers & mastic';
 export const stages=['Metal framing','Insulation & first fix','Boarding & sealing','Final inspection',FINISHING_STAGE];
 interface WallType{id:string;title:string;colour:string;build:string;detail:string;source:string;issue:string;insulationMm?:number}
 export const wallTypes:WallType[]=[
@@ -42,15 +43,15 @@ export function questions(wallId:string,stage:string,profile:'neos'|'generic'='n
  const insulationMm=profile==='neos'?wallTypes.find(w=>w.id===wallId)?.insulationMm:genericInsulation?Number(genericInsulation[1]):undefined;
  const preBoardQuestion=insulationMm?`Before boarding, is the top flat plate securely fixed and is the specified ${insulationMm} mm acoustic insulation installed?`:'Is the flat plate securely fixed at the top of the metal framing before boarding?';
  const preBoardAnswer=insulationMm?`Yes. The top flat plate is securely fixed to the metal framing and ${insulationMm} mm acoustic insulation is installed, in accordance with the drawing and applicable guidance recommendations.`:'The flat plate is securely fixed at the top of the metal framing in accordance with the drawing and applicable guidance recommendations.';
- if(stage===FINISHING_STAGE){
+ if(isFinishingStage(stage)){
   const w=profile==='neos'?wallTypes.find(w=>w.id===wallId):undefined;
   if(profile==='neos'&&!w)return [];
-  const source=profile==='generic'?'Selected project drawing / approved specification: '+customSpec:'NEOS site-specific finishing detail; confirm hanger/angle size against the approved detail.';
-  const mastic=make('floor-mastic','Is the specified gap below the plasterboard filled continuously with the specified FR acoustic mastic?',
-   profile==='neos'&&wallId!=='IWS-2'&&wallId!=='BLK-1'?'Yes. The 5-7 mm gap between the plasterboard and floor slab is filled continuously with the specified FR acoustic mastic, in accordance with the approved detail and manufacturer’s guidance.':'Yes. The specified floor-level plasterboard interface is filled continuously with the specified compatible acoustic/fire mastic, in accordance with the approved wall system detail and manufacturer’s guidance.',source);
+  const source=profile==='generic'?'Selected project drawing / approved specification: '+customSpec:'NEOS site-specific finishing detail: top angle 25 x 50 mm; plasterboard floor gap 5-7 mm and FR acoustic mastic.';
+  const mastic=make('floor-mastic',profile==='neos'&&wallId!=='IWS-2'&&wallId!=='BLK-1'?'After all plasterboard layers are completed, is the 5-7 mm floor gap fully filled with FR acoustic mastic?':'After all plasterboard layers are completed, is the specified floor gap fully filled with FR acoustic mastic?',
+   profile==='neos'&&wallId!=='IWS-2'&&wallId!=='BLK-1'?'Yes. After all plasterboard layers are completed, the 5-7 mm gap between the bottom of the plasterboard and floor slab is fully filled with FR acoustic mastic. The seal is continuous, without gaps, to the approved drawing and manufacturer’s guidance.':'Yes. After all plasterboard layers are fully installed, the specified floor-level gap is continuously filled with the specified compatible FR acoustic mastic. The completed seal follows the approved wall system detail and manufacturer’s guidance, without unsealed gaps along the inspected base.',source);
   if(wallId==='BLK-1')return [make('interface-mastic','Is the specified acoustic/fire mastic at the adjoining plasterboard interface complete?', 'Yes. The adjoining plasterboard interface has been sealed with the specified compatible acoustic/fire mastic to the approved interface detail.',source)];
-  return [make('top-hanger','After all plasterboard layers are installed, is the specified top hanger / angle securely fixed over the final layer at the head-track detail?',
-   'Yes. After all plasterboard layers are installed, the specified top hanger / angle is securely fixed over the final plasterboard layer at the head-track detail. Its size, position and fixings match the approved drawing and manufacturer’s guidance.',source),mastic];
+  return [make('top-hanger',profile==='neos'?'After all plasterboard layers are installed, is the 25 x 50 mm top angle securely fixed over the final layer at the head-track detail?':'After all plasterboard layers are installed, is the specified top angle securely fixed over the final layer at the head-track detail?',
+   profile==='neos'?'Yes. After all plasterboard layers are installed, the 25 x 50 mm top angle is securely fixed over the final plasterboard layer at the head-track detail, with its position and fixings in accordance with the approved drawing and manufacturer’s guidance.':'Yes. After all plasterboard layers are installed, the specified top angle is securely fixed over the final plasterboard layer at the head-track detail, in accordance with the approved drawing and manufacturer’s guidance.',source),mastic];
  }
  if(profile==='generic'){
   const source='Selected project drawing / approved specification: '+customSpec;

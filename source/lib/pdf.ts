@@ -1,4 +1,4 @@
-import {FINISHING_STAGE,stages} from './catalogue';
+import {FINISHING_STAGE,stages,isFinishingStage} from './catalogue';
 import {reportPhoto} from './report-photo';
 import {PDFDocument,StandardFonts,rgb} from 'pdf-lib';
 import type {Inspection,Drawing,Settings,Project} from './model';
@@ -86,7 +86,7 @@ export async function makeReport(i:Inspection,drawing:Drawing,settings:Settings,
  startPage();
  await drawText(title,L,782,16,true);
  await drawText(reference,L,765,8.5,true,muted);
- await drawText((i.status==='Pass'?'PASS':'PENDING')+'  /  '+i.wallType+'  /  '+(i.stage===stages[2]?'Plasterboard':i.stage),L,749,8.5,true,blue);
+ await drawText((i.status==='Pass'?'PASS':'PENDING')+'  /  '+i.wallType+'  /  '+(isFinishingStage(i.stage)?FINISHING_STAGE:i.stage===stages[2]?'Plasterboard':i.stage),L,749,8.5,true,blue);
  const floor=project?.floors?.find(f=>f.id===i.floor)?.name||drawing.floorName||floors.find(f=>f.id===i.floor)?.name||i.floor;
  await drawCompactLabel('Project',project?.name||'Project',L,733,390);
  await drawCompactLabel('Inspected by','ACL',245,717,170);
@@ -153,12 +153,12 @@ export async function makeReport(i:Inspection,drawing:Drawing,settings:Settings,
   const cells=sizes.map(size=>size.width+spare);
   const items=photos.map((photo,n)=>({photo,image:images.get(photo.id)!.image,caption:caption(photo,serial+n+1,cells[n])}));
   const tallest=Math.max(...sizes.map(s=>s.height)),captionHeight=Math.max(...items.map(item=>item.caption.length))*8;
-  return {gap,cells,items,sizes,tallest,captionHeight,height:tallest+captionHeight+(i.stage===FINISHING_STAGE?4:13)};
+  return {gap,cells,items,sizes,tallest,captionHeight,height:tallest+captionHeight+(isFinishingStage(i.stage)?4:13)};
  }
  async function printPhotoRow(photos:Inspection['photos'],checkNumber:number){
   const row=rowGeometry(photos);
   if(y-row.height<BOTTOM){startPage();if(checkNumber>0){await drawText('CHECK '+checkNumber+' / PHOTO EVIDENCE (CONTINUED)',L,y,7.5,true,blue);y-=14;}}
-  const imageTop=y-row.captionHeight-(i.stage===FINISHING_STAGE?2:5);
+  const imageTop=y-row.captionHeight-(isFinishingStage(i.stage)?2:5);
   for(let n=0;n<row.items.length;n++){
    const item=row.items[n],fit=row.sizes[n],cellX=L+row.cells.slice(0,n).reduce((sum,width)=>sum+width,0)+n*row.gap,x=cellX+(row.cells[n]-fit.width)/2;
    for(let line=0;line<item.caption.length;line++)await drawText(item.caption[line],cellX,y-6-line*8,6.8,true,muted);

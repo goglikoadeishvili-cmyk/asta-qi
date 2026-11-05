@@ -1,3 +1,4 @@
+import {FINISHING_STAGE,isFinishingStage} from './catalogue';
 import type {Inspection,WeeklyReport,RecordItem} from './model';
 import {projectOf} from './model';
 export function dateKey(date=new Date(),zone='Europe/London'){return new Intl.DateTimeFormat('en-CA',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit'}).format(date);}
@@ -8,7 +9,7 @@ export function newWeekly(projectId:string,date=dateKey()):WeeklyReport{const we
 export function weeklyInspections(records:RecordItem[],projectId:string,start:string){return records.filter((r):r is Inspection=>r.kind==='inspection'&&(!r.deletedAt||!!r.localClearedAt)&&projectOf(r)===projectId&&(r.workDate||r.date)>=start&&(r.workDate||r.date)<shiftDate(start,7)).sort((a,b)=>(a.workDate||a.date).localeCompare(b.workDate||b.date)||a.reference.localeCompare(b.reference));}
 export function weeklyDays(report:WeeklyReport,inspections:Inspection[]){return weekDates(report.weekStart).map(date=>({date,note:report.days.find(d=>d.date===date),inspections:inspections.filter(i=>(i.workDate||i.date)===date)}));}
 export function weeklyStatus(i:Inspection){return i.status==='Pass'?'Pass':'Pending';}
-export function weeklyStage(i:Inspection){return i.stage==='Metal framing'||i.stage==='Framing & isolation'?'Metal framing':i.stage==='Boarding & sealing'?'Plasterboard':i.stage;}
+export function weeklyStage(i:Inspection){return isFinishingStage(i.stage)?FINISHING_STAGE:i.stage==='Metal framing'||i.stage==='Framing & isolation'?'Metal framing':i.stage==='Boarding & sealing'?'Plasterboard':i.stage;}
 export function weeklyLocation(i:Inspection){
  const floor=({OB1:'Oxendon Basement',GF:'Ground Floor',MO1:'Mezzanine'} as Record<string,string>)[i.floor]||i.floor;
  return i.location?(i.location.toLowerCase().includes(floor.toLowerCase())?i.location:floor+' - '+i.location):floor;

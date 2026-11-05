@@ -1,10 +1,11 @@
 import type {Answer,Inspection,Drawing} from './model';
 import {allInspectionAnswers} from './model';
-import {questions,stages} from './catalogue';
+import {questions,stages,FINISHING_STAGE,isFinishingStage} from './catalogue';
 import {locationForPin} from './drawing-location';
 /** Upgrade an editable copy only. New requirements always need a fresh on-site answer. */
 export function editableInspection(initial:Inspection,drawing?:Drawing){
  const d=structuredClone(initial);if(d.status==='Draft'||d.status==='Fail')d.status='Pending';
+ if(isFinishingStage(d.stage))d.stage=FINISHING_STAGE;
  let changed=false;
  function update(answers:Answer[],stage:string){
   const fresh=questions(d.wallType,stage,d.qaProfile||'neos',d.specification+'; '+d.wallSnapshot);

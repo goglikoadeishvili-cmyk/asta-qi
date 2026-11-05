@@ -95,7 +95,7 @@ test('real PDF generator fits three checks and twelve photos on one A4 and safel
   const finishingAnswers=questions('IWL-2',FINISHING_STAGE).map(q=>({...q,answer:q.expected,result:'Pass'}));
   const finishing={...base,stage:FINISHING_STAGE,wallType:'IWL-2',answers:finishingAnswers,photos:finishingAnswers.flatMap((q,n)=>Array.from({length:4},(_,p)=>({id:'finish-'+n+'-'+p,name:'photo.jpg',caption:'',questionId:q.id})))};
   const finishingPDF=await PDFDocument.load(await(await makeReport(finishing,drawing,settings,urlFor,project,render)).arrayBuffer());
-  assert.equal(finishingPDF.getPageCount(),1,'two finishing checks and eight photos fit one A4');assert.match(finishingPDF.getTitle()!,/Hangers and mastic inspection/);
+  assert.equal(finishingPDF.getPageCount(),1,'two finishing checks and eight photos fit one A4');assert.match(finishingPDF.getTitle()!,/Angle and mastic inspection/);
   const multiple={...base,photos:Array.from({length:17},(_,n)=>({id:'pic-'+n,name:'original-'+n+'.jpg',caption:'',questionId:n<9?'tracks':'metal-frame'}))};
   const overflowing=await makeReport(multiple,drawing,settings,urlFor,project,render);
   const second=await PDFDocument.load(await overflowing.arrayBuffer());
@@ -266,12 +266,12 @@ test('hangers and floor mastic have independent checks; boarding keeps gaps with
   assert.doesNotMatch(board.map(q=>q.question+' '+q.expected).join(' '),/mastic|sealant|sealed gaps|top angle|top hanger|over the final layer/i);
   assert.match(finishing[0].expected,/After all plasterboard layers.*over the final plasterboard layer/);
   assert.match(finishing[1].expected,/acoustic.*mastic/i);assert.ok(finishing.every(q=>q.answer===''&&q.result==='Pending'));
-  assert.doesNotMatch(finishing[0].expected,/45.?25|25.?50/,'unconfirmed dimensions are not asserted');
+  assert.match(finishing[0].expected,/25 x 50 mm/);assert.doesNotMatch(finishing[0].question+' '+finishing[0].expected,/hanger/i);assert.match(finishing[1].expected,/After all plasterboard layers.*FR acoustic mastic/);if(wall!=='IWS-2')assert.match(finishing[1].expected,/5-7 mm/);
  }
  const generic=questions('CUSTOM',stages[2],'generic','75 mm insulation');assert.doesNotMatch(generic.map(q=>q.question+' '+q.expected).join(' '),/mastic|sealant|top angle|top hanger/i);
  assert.match(questions('IWL-2',stages[0])[0].expected,/2 rows of acoustic sealant/,'head-track sealant remains a separate metal requirement');
- assert.equal(inspectionTitle(FINISHING_STAGE),'Hangers and mastic inspection');
- assert.match(reportFilename({...sample(),stage:FINISHING_STAGE,version:1}),/^Hangers and mastic inspection/);
+ assert.equal(inspectionTitle(FINISHING_STAGE),'Angle and mastic inspection');
+ assert.match(reportFilename({...sample(),stage:FINISHING_STAGE,version:1}),/^Angle and mastic inspection/);
 });
 test('new finishing inspections never inherit boarding answers or photos; reopening old boarding retains history and requires fresh answers',()=>{
  const drawing={id:'d',projectId:'p',floor:'GF',name:'Floor',reference:'A-103',revision:'C1',page:1} as any,project={id:'p',qaProfile:'neos'} as any,pin={x:.5,y:.5,page:1};
@@ -280,5 +280,10 @@ test('new finishing inspections never inherit boarding answers or photos; reopen
  old.answers[1].expected='The floor gap is filled with FR acoustic sealant.';old.answers[1].answer=old.answers[1].expected;
  old.answers[2].expected='The top angle is fixed over the final layer.';old.answers[2].answer=old.answers[2].expected;
  const copy=editableInspection(old);assert.equal(copy.status,'Pending');assert.equal(copy.answers[1].answer,'');assert.equal(copy.answers[2].answer,'');assert.deepEqual(copy.photos,old.photos);assert.equal(copy.legacyAnswers.length,2);assert.equal(old.status,'Pass');
- assert.match(weeklyInspectionText({...sample(),wallType:'IWL-3',stage:FINISHING_STAGE}),/Hangers & mastic installed/);
+ assert.match(weeklyInspectionText({...sample(),wallType:'IWL-3',stage:FINISHING_STAGE}),/Angle & mastic installed/);
+});
+
+test('legacy finishing stage opens with Angle wording while retaining its photo associations',()=>{
+ const old={...sample(),templateVersion:2,stage:'Hangers & mastic',wallType:'IWL-2',answers:questions('IWL-2',FINISHING_STAGE).map(q=>({...q,answer:q.expected,result:'Pass'})),photos:[{id:'original-angle',questionId:'top-hanger'}]} as any;
+ const copy=editableInspection(old);assert.equal(copy.stage,'Angle & mastic');assert.deepEqual(copy.photos,old.photos);assert.equal(old.stage,'Hangers & mastic');assert.equal(inspectionTitle(old.stage),'Angle and mastic inspection');assert.match(weeklyInspectionText(old),/Angle & mastic/);
 });
