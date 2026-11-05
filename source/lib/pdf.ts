@@ -3,7 +3,7 @@ import type {Inspection,Drawing,Settings,Project} from './model';
 import {reportReference,inspectionTitle} from './report-names';
 import {excerptGeometry} from './report-geometry';
 import {floors,reportInspectionAnswers} from './model';
-import {PHOTOS_PER_ROW,photoRowCount,proportionalFit,evidencePhotoHeight} from './report-layout';
+import {PHOTOS_PER_ROW,photoRowCount,proportionalFit,evidencePhotoHeight,packPhotoRows} from './report-layout';
 export async function pdfjs(){const p=await import('pdfjs-dist');p.GlobalWorkerOptions.workerSrc=import.meta.env.BASE_URL+'pdf.worker.min.mjs';return p;}
 export async function inspectPdf(file:Blob){const p=await pdfjs();const doc=await p.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;const count=doc.numPages;await doc.destroy();return count;}
 export async function renderDrawing(url:string,page=1){if(!url)throw new Error('Drawing file is missing. Import its project pack or restore your backup.');const p=await pdfjs();const doc=await p.getDocument(url).promise;try{const pg=await doc.getPage(page);const unscaled=pg.getViewport({scale:1});const scale=Math.min(2,2600/Math.max(unscaled.width,unscaled.height));const vp=pg.getViewport({scale});const c=document.createElement('canvas');c.width=Math.ceil(vp.width);c.height=Math.ceil(vp.height);await pg.render({canvasContext:c.getContext('2d')!,viewport:vp}).promise;return {canvas:c,count:doc.numPages};}finally{await doc.destroy();}}
@@ -84,13 +84,13 @@ export async function makeReport(i:Inspection,drawing:Drawing,settings:Settings,
  startPage();
  await drawText(title,L,782,16,true);
  await drawText(reference,L,765,8.5,true,muted);
- await drawText((i.status==='Pass'?'PASS':'PENDING')+'  /  '+i.wallType+'  /  '+i.stage,245,765,8.5,true,blue);
+ await drawText((i.status==='Pass'?'PASS':'PENDING')+'  /  '+i.wallType+'  /  '+i.stage,L,749,8.5,true,blue);
  const floor=project?.floors?.find(f=>f.id===i.floor)?.name||drawing.floorName||floors.find(f=>f.id===i.floor)?.name||i.floor;
- await drawCompactLabel('Project',project?.name||'Project',L,748,326);
- await drawCompactLabel('Inspected by','ACL',378,748,176);
- await drawCompactLabel('Floor',floor,L,732,320);
- await drawCompactLabel('Date',i.date,378,732,176);
- await drawCompactLabel('Location',i.location,L,716,520);
+ await drawCompactLabel('Project',project?.name||'Project',L,733,390);
+ await drawCompactLabel('Inspected by','ACL',245,717,170);
+ await drawCompactLabel('Floor',floor,L,717,200);
+ await drawCompactLabel('Date',i.date,245,701,170);
+ await drawCompactLabel('Location',i.location,L,701,210);
  // One shared drawing pin identifies the location of every photo in this inspection.
  const {canvas:source}=await render(urlFor(drawing.fileId),i.pin.page);
  const g=excerptGeometry(source.width,source.height,i.pin),crop=document.createElement('canvas');
@@ -101,17 +101,14 @@ export async function makeReport(i:Inspection,drawing:Drawing,settings:Settings,
  ctx.strokeStyle='white';ctx.lineWidth=5;ctx.stroke();
  ctx.beginPath();ctx.arc(g.px,g.py,5,0,Math.PI*2);ctx.fillStyle='white';ctx.fill();
  const excerpt=await doc.embedPng(crop.toDataURL());
- await drawText('DRAWING - MARKED INSPECTION POSITION',L,701,8,true,blue);
- const drawingWidth=180,drawingHeight=drawingWidth*excerpt.height/excerpt.width,top=691;
- page.drawImage(excerpt,{x:L,y:top-drawingHeight,width:drawingWidth,height:drawingHeight});
- page.drawRectangle({x:L,y:top-drawingHeight,width:drawingWidth,height:drawingHeight,borderWidth:.6,borderColor:rule});
- const right=L+drawingWidth+16;
- await drawText('DRAWING REFERENCE',right,679,7.1,true,muted);
- const refs=wrap(i.drawingSnapshot.reference,8,W-right-L);let refY=663;
- for(const line of refs.slice(0,3)){await drawText(line,right,refY,8,true);refY-=13;}
- await drawText('REV '+i.drawingSnapshot.revision+'  /  PAGE '+i.pin.page,right,refY-3,8,false,ink);
- await drawText('Red pin: inspection location',right,refY-20,7.5,false,muted);
- y=top-drawingHeight-11;
+ // Compact drawing beside the report heading; the red pin remains visible.
+ const drawingWidth=110,drawingHeight=drawingWidth*excerpt.height/excerpt.width,top=790,drawingX=W-L-drawingWidth;
+ page.drawImage(excerpt,{x:drawingX,y:top-drawingHeight,width:drawingWidth,height:drawingHeight});
+ page.drawRectangle({x:drawingX,y:top-drawingHeight,width:drawingWidth,height:drawingHeight,borderWidth:.6,borderColor:rule});
+ const refs=wrap(i.drawingSnapshot.reference,6.2,drawingWidth);let refY=top-drawingHeight-10;
+ for(const line of refs){await drawText(line,drawingX,refY,6.2,true);refY-=8;}
+ await drawText('REV '+i.drawingSnapshot.revision+' / PAGE '+i.pin.page,drawingX,refY,6.2,false,muted);
+ y=Math.min(684,refY-12);
  page.drawLine({start:{x:L,y:y+6},end:{x:W-L,y:y+6},thickness:.8,color:rule});
  const checks=reportInspectionAnswers(i);
  const photosFor=(questionId:string)=>i.photos.filter(p=>p.questionId===questionId);
@@ -140,24 +137,26 @@ export async function makeReport(i:Inspection,drawing:Drawing,settings:Settings,
  const tailHeight=tails.reduce((sum,lines)=>sum+lines.length*10+8,0);
  const textHeight=groups.reduce((sum,g,n)=>{if(!g.answer)return sum+15;const lines=groupLines(g.answer,n);return sum+12+lines.question.length*qLeading+lines.answer.length*aLeading+lines.note.length*noteLeading;},0);
  const totalRows=groups.reduce((sum,g)=>sum+photoRowCount(g.photos.length),0);
- const caption=(p:Inspection['photos'][number],number:number)=>{const value=(p.caption||'').trim();return wrap('PHOTO '+number+(value&&value!==p.name?' / '+value:''),6.8,(CW-16)/3);};
+ const caption=(p:Inspection['photos'][number],number:number,maxWidth=(CW-4*(PHOTOS_PER_ROW-1))/PHOTOS_PER_ROW)=>{const value=(p.caption||'').trim();return wrap('PHOTO '+number+(value&&value!==p.name?' / '+value:''),6.8,maxWidth);};
  let plannedSerial=0,captionExtra=0;
  for(const group of groups)for(let start=0;start<group.photos.length;start+=PHOTOS_PER_ROW){const cells=group.photos.slice(start,start+PHOTOS_PER_ROW);const maxLines=Math.max(...cells.map(p=>caption(p,++plannedSerial).length));captionExtra+=(maxLines-1)*8;}
- const photoHeight=evidencePhotoHeight(y,textHeight,totalRows,tailHeight+captionExtra);
+ const photoHeight=evidencePhotoHeight(691-180*excerpt.height/excerpt.width-11,textHeight,totalRows,tailHeight+captionExtra);
  let serial=0;
+ const fitPhoto=(photo:Inspection['photos'][number])=>{const image=images.get(photo.id)!.image;return proportionalFit(image.width,image.height,(CW-16)/3-4,photoHeight);};
+ const photoRows=(photos:Inspection['photos'])=>packPhotoRows(photos,p=>fitPhoto(p).width,CW);
  function rowGeometry(photos:Inspection['photos']){
-  const gap=8,cell=(CW-gap*(PHOTOS_PER_ROW-1))/PHOTOS_PER_ROW;
-  const items=photos.map((photo,n)=>({photo,image:images.get(photo.id)!.image,caption:caption(photo,serial+n+1)}));
-  const sizes=items.map(({image})=>proportionalFit(image.width,image.height,cell-4,photoHeight));
+  const gap=4,sizes=photos.map(fitPhoto),spare=(CW-gap*(photos.length-1)-sizes.reduce((sum,size)=>sum+size.width,0))/photos.length;
+  const cells=sizes.map(size=>size.width+spare);
+  const items=photos.map((photo,n)=>({photo,image:images.get(photo.id)!.image,caption:caption(photo,serial+n+1,cells[n])}));
   const tallest=Math.max(...sizes.map(s=>s.height)),captionHeight=Math.max(...items.map(item=>item.caption.length))*8;
-  return {gap,cell,items,sizes,tallest,captionHeight,height:tallest+captionHeight+13};
+  return {gap,cells,items,sizes,tallest,captionHeight,height:tallest+captionHeight+13};
  }
  async function printPhotoRow(photos:Inspection['photos'],checkNumber:number){
   const row=rowGeometry(photos);
   if(y-row.height<BOTTOM){startPage();if(checkNumber>0){await drawText('CHECK '+checkNumber+' / PHOTO EVIDENCE (CONTINUED)',L,y,7.5,true,blue);y-=14;}}
   const imageTop=y-row.captionHeight-5;
   for(let n=0;n<row.items.length;n++){
-   const item=row.items[n],fit=row.sizes[n],cellX=L+n*(row.cell+row.gap),x=cellX+(row.cell-fit.width)/2;
+   const item=row.items[n],fit=row.sizes[n],cellX=L+row.cells.slice(0,n).reduce((sum,width)=>sum+width,0)+n*row.gap,x=cellX+(row.cells[n]-fit.width)/2;
    for(let line=0;line<item.caption.length;line++)await drawText(item.caption[line],cellX,y-6-line*8,6.8,true,muted);
    const imageY=imageTop-fit.height;page.drawImage(item.image,{x,y:imageY,width:fit.width,height:fit.height});
    page.drawRectangle({x,y:imageY,width:fit.width,height:fit.height,borderColor:rule,borderWidth:.5});serial++;
@@ -168,7 +167,7 @@ export async function makeReport(i:Inspection,drawing:Drawing,settings:Settings,
   const group=groups[n],a=group.answer,groupPhotos=group.photos;
   if(a){
    const lines=groupLines(a,n),headingHeight=12+lines.question.length*qLeading+lines.answer.length*aLeading+lines.note.length*noteLeading;
-   const firstRow=groupPhotos.length?rowGeometry(groupPhotos.slice(0,PHOTOS_PER_ROW)).height:0;
+   const firstRow=groupPhotos.length?rowGeometry(photoRows(groupPhotos)[0]).height:0;
    // Keep the question, answer and its first evidence row together when they fit.
    await ensureSpace(headingHeight+firstRow);
    page.drawLine({start:{x:L,y:y-2},end:{x:W-L,y:y-2},thickness:.6,color:rule});y-=9;
@@ -176,8 +175,8 @@ export async function makeReport(i:Inspection,drawing:Drawing,settings:Settings,
    for(const line of lines.answer){await ensureSpace(aLeading);await drawText(line,L+2,y,aSize,false,ink);y-=aLeading;}
    for(const line of lines.note){await ensureSpace(noteLeading);await drawText(line,L+2,y,noteSize,false,muted);y-=noteLeading;}
    y-=3;
-  }else{await ensureSpace(15+(groupPhotos.length?rowGeometry(groupPhotos.slice(0,PHOTOS_PER_ROW)).height:0));await drawText('ADDITIONAL SITE PHOTOS',L,y,8,true,blue);y-=15;}
-  for(let start=0;start<groupPhotos.length;start+=PHOTOS_PER_ROW)await printPhotoRow(groupPhotos.slice(start,start+PHOTOS_PER_ROW),a?n+1:0);
+  }else{await ensureSpace(15+(groupPhotos.length?rowGeometry(photoRows(groupPhotos)[0]).height:0));await drawText('ADDITIONAL SITE PHOTOS',L,y,8,true,blue);y-=15;}
+  for(const row of photoRows(groupPhotos))await printPhotoRow(row,a?n+1:0);
  }
  for(const lines of tails){for(const line of lines){await ensureSpace(10);await drawText(line,L,y,8,false,ink);y-=10;}y-=8;}
  // Only the continuation gets numbering; no repeated inspector/date/footer blocks.
