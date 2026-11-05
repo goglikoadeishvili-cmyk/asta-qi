@@ -218,3 +218,19 @@ test('expanded checks require fresh answers on an editable copy while preserving
  const verified={...edited,status:'Pass',answers:current.map(q=>({...q,answer:q.expected,result:'Pass'}))} as any;
  assert.equal(editableInspection(verified).status,'Pass');
 });
+
+import {planLocalInspectionCleanup} from '../source/lib/local-cleanup';
+test('explicit local cleanup frees only selected evidence, protects other projects and drafts, and preserves weekly activity',()=>{
+ const selected={...sample(),projectId:'p',version:4,date:'2026-11-05',photos:[{id:'original',reportId:'report'},{id:'shared'},{id:'draft-photo'},{id:'drawing-photo'}]};
+ const other={...sample(),id:'other',projectId:'other-project',version:1,photos:[{id:'shared'}]};
+ const records=[selected,other,{kind:'drawing',id:'drawing',fileId:'drawing-photo',projectId:'p'}] as any;
+ const draft={id:'draft',savedAt:'2026-11-05',inspection:{...sample(),id:'draft',photos:[{id:'draft-photo'}]}};
+ const files=['original','report','shared','draft-photo','drawing-photo','unrelated'].map(id=>({id,size:10}));
+ const plan=planLocalInspectionCleanup(records,files,[draft],'p',[{id:selected.id,version:4}],'2026-11-05T18:00:00Z');
+ assert.deepEqual(plan.fileIds,['original','report']);assert.equal(plan.bytes,20);assert.equal(plan.records[0].photos.length,0);assert.ok(plan.records[0].deletedAt);assert.ok(plan.records[0].localClearedAt);assert.equal(plan.records[0].version,5);
+ assert.equal(weeklyInspections(plan.records as any,'p','2026-11-02').length,1,'weekly work remains after explicit space cleanup');
+ assert.equal(selected.photos.length,4,'planning never mutates original evidence');
+ assert.throws(()=>planLocalInspectionCleanup(records,files,[],'p',[{id:'other',version:1}]),/changed/);
+ assert.throws(()=>planLocalInspectionCleanup(records,files,[],'p',[{id:selected.id,version:3}]),/changed/);
+ assert.throws(()=>planLocalInspectionCleanup(records,files,[],'p',[]),/changed/);
+});

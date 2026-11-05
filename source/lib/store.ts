@@ -1,3 +1,4 @@
+import {planLocalInspectionCleanup} from './local-cleanup';
 import type {RecordItem} from './model';
 let pending:Promise<IDBDatabase>|null=null;
 let databaseName='asta-personal-qa';
@@ -44,7 +45,23 @@ export async function recoverInspectionDrafts(){
  const values=new Map((await request<import('./inspection-drafts').InspectionDraft[]>('drafts','readonly',s=>s.getAll())).map(d=>[d.id,d]));
  try{for(let n=0;n<localStorage.length;n++){const key=localStorage.key(n);if(!key?.startsWith(draftPrefix()))continue;const d=JSON.parse(localStorage.getItem(key)||'null');if(d?.id&&d.inspection?.id===d.id&&d.inspection.kind==='inspection'&&d.inspection.pin&&d.savedAt&&(!values.has(d.id)||values.get(d.id)!.savedAt<d.savedAt))values.set(d.id,d);}}catch{}
  if(!values.size)return 0;
- const d=await db();await new Promise<void>((resolve,reject)=>{const tx=d.transaction(['records','drafts'],'readwrite'),rs=tx.objectStore('records');for(const value of values.values()){const req=rs.get(value.id);req.onsuccess=()=>{rs.put(recoverInspection(value,req.result));tx.objectStore('drafts').delete(value.id)};}tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});
+ const d=await db();await new Promise<void>((resolve,reject)=>{const tx=d.transaction(['records','drafts'],'readwrite'),rs=tx.objectStore('records');for(const value of values.values()){const req=rs.get(value.id);req.onsuccess=()=>{if(!req.result?.localClearedAt||req.result.localClearedAt<value.savedAt)rs.put(recoverInspection(value,req.result));tx.objectStore('drafts').delete(value.id)};}tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});
  for(const value of values.values())try{localStorage.removeItem(draftPrefix()+value.id)}catch{}
  return values.size;
+}
+
+// Snapshot versions and file references are checked inside the same atomic write transaction.
+export async function deleteLocalInspectionEvidence(projectId:string,selection:{id:string;version:number}[]){
+ if(isSharedStore())throw new Error('Local evidence deletion is available in the device-only workspace.');
+ const fallbackDrafts:import('./inspection-drafts').InspectionDraft[]=[];
+ try{for(let n=0;n<localStorage.length;n++){const key=localStorage.key(n);if(key?.startsWith(draftPrefix())){const value=JSON.parse(localStorage.getItem(key)||'null');if(value?.inspection?.photos)fallbackDrafts.push(value);}}}catch{}
+ const d=await db();const plan=await new Promise<ReturnType<typeof planLocalInspectionCleanup>>((resolve,reject)=>{
+  const tx=d.transaction(['records','files','drafts'],'readwrite'),rs=tx.objectStore('records'),fs=tx.objectStore('files'),ds=tx.objectStore('drafts');
+  const a=rs.getAll(),b=fs.getAll(),c=ds.getAll();let result:ReturnType<typeof planLocalInspectionCleanup>,error:unknown;
+  let loaded=0;const apply=()=>{if(++loaded!==3)return;try{result=planLocalInspectionCleanup(a.result,b.result,[...c.result,...fallbackDrafts],projectId,selection);for(const r of result.records)rs.put(r);for(const id of result.fileIds)fs.delete(id);for(const id of result.inspectionIds)ds.delete(id);}catch(e){error=e;tx.abort();}};
+  a.onsuccess=apply;b.onsuccess=apply;c.onsuccess=apply;
+  tx.oncomplete=()=>resolve(result);tx.onerror=()=>reject(error||tx.error);tx.onabort=()=>reject(error||tx.error||new Error('Deletion was cancelled.'));
+ });
+ for(const id of plan.inspectionIds)try{localStorage.removeItem(draftPrefix()+id)}catch{}
+ return plan;
 }
