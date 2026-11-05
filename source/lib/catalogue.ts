@@ -91,5 +91,6 @@ export function questions(wallId:string,stage:string,profile:'neos'|'generic'='n
 export const answerOptions=(q:Answer)=>[
  {label:'Yes',text:q.expected,result:'Pass' as const},
  {label:'Defect / incomplete work',text:'Work does not match the drawing. Defect and corrective action recorded below.',result:'Fail' as const},
- {label:'Not inspected yet',text:'Not yet inspected.',result:'Pending' as const}
+ {label:'Not inspected yet',text:'Not yet inspected.',result:'Pending' as const},
+ {label:'Skip this question',text:'Skipped by inspector — outside this inspection scope.',result:'Pending' as const}
 ];

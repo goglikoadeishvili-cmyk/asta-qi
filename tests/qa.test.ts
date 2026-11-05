@@ -287,3 +287,5 @@ test('legacy finishing stage opens with Angle wording while retaining its photo 
  const old={...sample(),templateVersion:2,stage:'Hangers & mastic',wallType:'IWL-2',answers:questions('IWL-2',FINISHING_STAGE).map(q=>({...q,answer:q.expected,result:'Pass'})),photos:[{id:'original-angle',questionId:'top-hanger'}]} as any;
  const copy=editableInspection(old);assert.equal(copy.stage,'Angle & mastic');assert.deepEqual(copy.photos,old.photos);assert.equal(old.stage,'Hangers & mastic');assert.equal(inspectionTitle(old.stage),'Angle and mastic inspection');assert.match(weeklyInspectionText(old),/Angle & mastic/);
 });
+
+test('explicitly skipped questions permit Pass without treating blank or failed checks as passed',()=>{const i=sample();i.answers[1]={...i.answers[1],answer:'Skipped by inspector',result:'Pending',skipped:true};validateInspection(i);assert.throws(()=>validateInspection({...i,answers:i.answers.map((a:any)=>({...a,skipped:true}))}));assert.throws(()=>validateInspection({...i,answers:i.answers.map((a:any,n:number)=>n===1?{...a,skipped:false,answer:''}:a)}));});
