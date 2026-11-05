@@ -112,11 +112,12 @@ export async function makeReport(i:Inspection,drawing:Drawing,settings:Settings,
  await drawText('REV '+i.drawingSnapshot.revision+' / PAGE '+i.pin.page,drawingX,refY,6.2,false,muted);
  y=Math.min(684,refY-12);
  page.drawLine({start:{x:L,y:y+6},end:{x:W-L,y:y+6},thickness:.8,color:rule});
- const checks=reportInspectionAnswers(i);
- const photosFor=(questionId:string)=>i.photos.filter(p=>p.questionId===questionId);
+ const reportChecks=reportInspectionAnswers(i),skippedIds=new Set(reportChecks.filter(q=>q.skipped).map(q=>q.id));
+ const checks=reportChecks.filter(q=>!q.skipped),reportPhotos=i.photos.filter(p=>!p.questionId||!skippedIds.has(p.questionId));
+ const photosFor=(questionId:string)=>reportPhotos.filter(p=>p.questionId===questionId);
  type Picture={photo:Inspection['photos'][number];image:any};
  const images=new Map<string,Picture>(),embedded=new Map<string,any>();
- for(const p of i.photos){
+ for(const p of reportPhotos){
   const url=urlFor(p.reportId||p.id)||urlFor(p.id);
   if(!url)throw new Error('Photo evidence is missing. Restore the original evidence backup.');
   if(embedded.has(url)){images.set(p.id,{photo:p,image:embedded.get(url)});continue;}
@@ -128,7 +129,7 @@ export async function makeReport(i:Inspection,drawing:Drawing,settings:Settings,
   const image:any=optimized.jpeg?await doc.embedJpg(optimized.bytes):await doc.embedPng(optimized.bytes);embedded.set(url,image);
   images.set(p.id,{photo:p,image});
  }
- const extra=i.photos.filter(p=>!p.questionId||!checks.some(a=>a.id===p.questionId));
+ const extra=reportPhotos.filter(p=>!p.questionId||!checks.some(a=>a.id===p.questionId));
  const groups=checks.map(a=>({answer:a,photos:photosFor(a.id)}));
  if(extra.length)groups.push({answer:null as any,photos:extra});
  const qSize=8.8,qLeading=10.5,aSize=8,aLeading=9.5,noteSize=7.6,noteLeading=9;
