@@ -21,7 +21,7 @@ test('gateway blocks unauthorised requests and non-PDF ZIP contents',async()=>{c
 test('head and base tracks have separate washer checks before framing',()=>{for(const id of ['IWL-1','IWL-2','IWS-1']){const list=questions(id,stages[0]);assert.deepEqual(list.map(q=>q.id),['tracks','base-tracks','metal-frame']);assert.match(list[0].expected,/2 FireLine/);assert.match(list[0].expected,/1 x 12.5 mm black/);assert.match(list[0].expected,/washers at all head fixings/);assert.match(list[0].expected,/2 rows of acoustic sealant/);assert.match(list[1].expected,/2 x 12.5 mm blue.*25 mm/);assert.match(list[1].expected,/washers at all base fixings/);}assert.doesNotMatch(questions('IWS-2',stages[0])[1].expected,/600 mm centres/);});
 test('boarding asks about fixed plates without mandatory measurements or manufacturer wording',()=>{const q=questions('IWL-2',stages[2]);assert.deepEqual(q.map(q=>q.id),['pre-board-plate','boarding','final-plate']);assert.ok(!q[0].requiresHeadMeasurement);assert.match(q[0].expected,/securely fixed/);assert.doesNotMatch(q.map(x=>x.expected).join(' '),/Knauf|ALPHA|head offset|150 mm|70 mm/);});
 test('Pending reopens and can become Pass with existing inspection photos, without a photo quota per question',()=>{const i={...sample(),templateVersion:2,stage:stages[2],answers:questions('IWL-2',stages[2]).map(q=>({...q,answer:q.expected,result:'Pass'})),photos:[{id:'one',questionId:'pre-board-plate'},{id:'two',questionId:'boarding'}],status:'Pending'} as any;validateInspection(i);i.status='Pass';validateInspection(i);validateInspection({...i,photos:[i.photos[0]]});assert.throws(()=>validateInspection({...i,photos:[]}),/evidence photo/);validateInspection({...i,status:'Pending',photos:[],answers:[],description:''});});
-test('boarding refers to manufacturer guidance instead of claiming its installation detail is on the drawing',()=>{const q=questions('IWL-2',stages[2])[1];assert.match(q.question,/manufacturer/);assert.match(q.expected,/manufacturer/);assert.doesNotMatch(q.expected,/Knauf|ALPHA/);assert.match(q.expected,/5-7 mm.*FR acoustic sealant/);});
+test('boarding refers to manufacturer guidance instead of claiming its installation detail is on the drawing',()=>{const q=questions('IWL-2',stages[2])[1];assert.match(q.question,/manufacturer/);assert.match(q.expected,/manufacturer/);assert.doesNotMatch(q.expected,/Knauf|ALPHA/);assert.match(q.expected,/5-7 mm/);assert.doesNotMatch(q.expected,/mastic|sealant|sealed gaps/i);});
 test('project inspection list retains framing and boarding across different floors and statuses',()=>{const metal={...sample(),id:'metal',projectId:'p',floor:'MO1',stage:stages[0],status:'Pass'};const board={...sample(),id:'board',projectId:'p',floor:'GF',stage:stages[2],status:'Pending'};const other={...board,id:'other',projectId:'elsewhere'};const records=[metal,board,other] as any;assert.deepEqual(inspectionsForProject(records,'p').map(i=>i.id),['metal','board']);board.status='Pass';assert.deepEqual(inspectionsForProject(records,'p').map(i=>i.id),['metal','board']);assert.equal(metal.status,'Pass');});
 test('legacy project migration preserves original inspection / pin data and project scope blocks cross-project records',()=>{const old={...sample(),version:3,projectId:undefined};const updates=migrateProjects([old]);const migrated=updates.find(r=>r.id===old.id) as any;assert.equal(migrated.projectId,DEFAULT_PROJECT_ID);assert.deepEqual(migrated.pin,old.pin);assert.equal(migrated.version,3);const d={id:'d',kind:'drawing',floor:'OB1',page:1,projectId:'project-a'} as any;assert.throws(()=>assertProjectInspection({...old,projectId:'project-b'},[d],'project-a'));assertProjectInspection({...old,projectId:'project-a'},[d],'project-a');const generic=questions('Wall X',stages[0],'generic','Own project specification, measured centres to drawing');assert.doesNotMatch(generic.map(q=>q.expected).join(' '),/NEOS|CineWALL|600 mm/);});
 test('touch marker counter-scale keeps a small visible pin when the browser is pinch-zoomed; desktop stays unchanged',()=>{for(const zoom of [1,2,5,10])assert.equal(18*zoom*pinScale(zoom,true),18);assert.equal(pinScale(5,false),1);assert.equal(pinScale(NaN,true),1);});
@@ -92,6 +92,10 @@ test('real PDF generator fits three checks and twelve photos on one A4 and safel
   const metalNine={...base,answers:questions('IWL-2',stages[0]).map(q=>({...q,answer:q.expected,result:'Pass'}))};
   metalNine.photos=metalNine.answers.flatMap((q:any,n:number)=>Array.from({length:4},(_,p)=>({id:'metal-'+n+'-'+p,name:'photo.jpg',caption:'',questionId:q.id})));
   assert.equal((await PDFDocument.load(await(await makeReport(metalNine,drawing,settings,urlFor,project,render)).arrayBuffer())).getPageCount(),1,'three metal questions with twelve photos fit one A4');
+  const finishingAnswers=questions('IWL-2',FINISHING_STAGE).map(q=>({...q,answer:q.expected,result:'Pass'}));
+  const finishing={...base,stage:FINISHING_STAGE,wallType:'IWL-2',answers:finishingAnswers,photos:finishingAnswers.flatMap((q,n)=>Array.from({length:4},(_,p)=>({id:'finish-'+n+'-'+p,name:'photo.jpg',caption:'',questionId:q.id})))};
+  const finishingPDF=await PDFDocument.load(await(await makeReport(finishing,drawing,settings,urlFor,project,render)).arrayBuffer());
+  assert.equal(finishingPDF.getPageCount(),1,'two finishing checks and eight photos fit one A4');assert.match(finishingPDF.getTitle()!,/Hangers and mastic inspection/);
   const multiple={...base,photos:Array.from({length:17},(_,n)=>({id:'pic-'+n,name:'original-'+n+'.jpg',caption:'',questionId:n<9?'tracks':'metal-frame'}))};
   const overflowing=await makeReport(multiple,drawing,settings,urlFor,project,render);
   const second=await PDFDocument.load(await overflowing.arrayBuffer());
@@ -200,8 +204,8 @@ import {editableInspection} from '../source/lib/checklist-update';
 test('site detail checklist stays within three checks and applies gaps to the correct layer count',()=>{
  for(const wall of wallTypes){for(const stage of [stages[0],stages[2]])assert.ok(questions(wall.id,stage).length<=3);}
  for(const id of ['IWL-1','IWL-2','IWL-3']){
-  const board=questions(id,stages[2]);assert.match(board[1].question,/all four.*5-7 mm/);assert.match(board[1].expected,/FR acoustic sealant/);
-  assert.match(board[2].question,/after all boarding/);assert.match(board[2].expected,/After all board layers.*over the final layer/);
+  const board=questions(id,stages[2]);assert.match(board[1].question,/all four.*5-7 mm/);assert.doesNotMatch(board[1].expected,/mastic|sealant|sealed gaps/i);
+  assert.match(board[2].question,/plasterboard joints/);assert.doesNotMatch(board[2].expected,/top angle|hanger|over the final layer/i);
  }
  assert.match(questions('IWS-1',stages[2])[1].question,/both plasterboard layers on each face/);
  assert.doesNotMatch(questions('IWL-3',stages[2]).map(q=>q.expected).join(' '),/insulation|100 mm/);
@@ -251,4 +255,30 @@ test('multipart email never resends confirmed parts and stops before an uncertai
  parts[1].batch={...parts[1].batch,status:'manual-sent'};
  await sendPreparedParts(parts,async p=>{calls.push(p.batch.id);return {...p.batch,status:'accepted',providerId:'last'};},async()=>{});
  assert.deepEqual(calls,['part-2']);
+});
+
+import {FINISHING_STAGE} from '../source/lib/catalogue';
+import {inspectionTitle,reportFilename} from '../source/lib/report-names';
+test('hangers and floor mastic have independent checks; boarding keeps gaps without signing off finishing work',()=>{
+ for(const wall of ['IWL-1','IWL-2','IWL-3','IWS-1','IWS-2']){
+  const board=questions(wall,stages[2]),finishing=questions(wall,FINISHING_STAGE);
+  assert.equal(board.length,3);assert.deepEqual(finishing.map(q=>q.id),['top-hanger','floor-mastic']);
+  assert.doesNotMatch(board.map(q=>q.question+' '+q.expected).join(' '),/mastic|sealant|sealed gaps|top angle|top hanger|over the final layer/i);
+  assert.match(finishing[0].expected,/After all plasterboard layers.*over the final plasterboard layer/);
+  assert.match(finishing[1].expected,/acoustic.*mastic/i);assert.ok(finishing.every(q=>q.answer===''&&q.result==='Pending'));
+  assert.doesNotMatch(finishing[0].expected,/45.?25|25.?50/,'unconfirmed dimensions are not asserted');
+ }
+ const generic=questions('CUSTOM',stages[2],'generic','75 mm insulation');assert.doesNotMatch(generic.map(q=>q.question+' '+q.expected).join(' '),/mastic|sealant|top angle|top hanger/i);
+ assert.match(questions('IWL-2',stages[0])[0].expected,/2 rows of acoustic sealant/,'head-track sealant remains a separate metal requirement');
+ assert.equal(inspectionTitle(FINISHING_STAGE),'Hangers and mastic inspection');
+ assert.match(reportFilename({...sample(),stage:FINISHING_STAGE,version:1}),/^Hangers and mastic inspection/);
+});
+test('new finishing inspections never inherit boarding answers or photos; reopening old boarding retains history and requires fresh answers',()=>{
+ const drawing={id:'d',projectId:'p',floor:'GF',name:'Floor',reference:'A-103',revision:'C1',page:1} as any,project={id:'p',qaProfile:'neos'} as any,pin={x:.5,y:.5,page:1};
+ const finishing=createInspectionAt(drawing,project,pin,FINISHING_STAGE);assert.equal(finishing.stage,FINISHING_STAGE);assert.deepEqual(finishing.photos,[]);assert.deepEqual(finishing.answers,[]);assert.equal(finishing.status,'Pending');
+ const old={...sample(),stage:stages[2],wallType:'IWL-2',templateVersion:2,answers:questions('IWL-2',stages[2]).map(q=>({...q,answer:q.expected,result:'Pass'})),photos:[{id:'board-photo',questionId:'boarding'}]} as any;
+ old.answers[1].expected='The floor gap is filled with FR acoustic sealant.';old.answers[1].answer=old.answers[1].expected;
+ old.answers[2].expected='The top angle is fixed over the final layer.';old.answers[2].answer=old.answers[2].expected;
+ const copy=editableInspection(old);assert.equal(copy.status,'Pending');assert.equal(copy.answers[1].answer,'');assert.equal(copy.answers[2].answer,'');assert.deepEqual(copy.photos,old.photos);assert.equal(copy.legacyAnswers.length,2);assert.equal(old.status,'Pass');
+ assert.match(weeklyInspectionText({...sample(),wallType:'IWL-3',stage:FINISHING_STAGE}),/Hangers & mastic installed/);
 });

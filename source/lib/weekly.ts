@@ -14,7 +14,8 @@ export function weeklyLocation(i:Inspection){
  return i.location?(i.location.toLowerCase().includes(floor.toLowerCase())?i.location:floor+' - '+i.location):floor;
 }
 export function weeklyInspectionText(i:Inspection){
- const work=i.wallType==='IWL-3'?(weeklyStage(i)==='Metal framing'?'Window reveal framing':'Window reveal plasterboard'):weeklyStage(i);
+ const stage=weeklyStage(i);
+ const work=i.wallType==='IWL-3'&&['Metal framing','Plasterboard'].includes(stage)?(stage==='Metal framing'?'Window reveal framing':'Window reveal plasterboard'):stage;
  const checked=i.workDate&&i.workDate!==i.date?' Checked on '+new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'}).format(new Date(i.date+'T12:00:00Z'))+'.':'';
  return `${weeklyLocation(i)}: ${weeklyStatus(i)==='Pass'?work+' installed and passed quality inspection.':work+' activity recorded; quality inspection still pending.'}${checked}${i.comments?' '+i.comments:''}`;
 }
