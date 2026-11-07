@@ -298,3 +298,16 @@ test('deletion warning lists missing, uncertain and older-version sends but excl
  assert.deepEqual(unconfirmedInspections(items,batches).map(i=>i.id),['inspection-2','inspection-3','inspection-4']);
  assert.deepEqual(unconfirmedInspections([],batches),[]);
 });
+
+import {labourComplete,labourText,reportInspections,newWeekly as freshWeekly,weekDates as daysOfWeek} from '../source/lib/weekly';
+test('weekly team requires explicit counts for all five days, accepts zero and starts blank next Monday',()=>{
+ const r=freshWeekly('p','2026-11-06');assert.equal(labourComplete(r),false);
+ r.days=daysOfWeek(r.weekStart).slice(0,5).map(date=>({date,work:'',deliveries:'',issues:'',safety:'',labour:'',dryliners:'3',labourers:'0'}));
+ assert.equal(labourComplete(r),true);assert.match(labourText(r.days[0]),/Site Manager \/ Supervisor/);
+ r.days[4].dryliners='';assert.equal(labourComplete(r),false);assert.deepEqual(freshWeekly('p','2026-11-09').days,[]);
+});
+test('weekly inclusion excludes another project, another week and explicitly excluded test records',()=>{
+ const r=freshWeekly('p','2026-11-06');const base={...sample(),projectId:'p',date:'2026-11-06',workDate:'2026-11-05'};
+ r.excludedInspectionIds=['test'];
+ assert.deepEqual(reportInspections([{...base,id:'real'},{...base,id:'test'},{...base,id:'other',projectId:'other'},{...base,id:'old',workDate:'2026-10-30'}],r).map(i=>i.id),['real']);
+});

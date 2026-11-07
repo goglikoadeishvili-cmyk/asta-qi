@@ -1,6 +1,6 @@
 import {PDFDocument,StandardFonts,rgb} from 'pdf-lib';
 import type {Inspection,WeeklyReport,Project,Settings} from './model';
-import {shiftDate,weeklyDays,weeklyInspectionText,weeklyStatus,weeklyLocation} from './weekly';
+import {shiftDate,weeklyDays,weeklyInspectionText,weeklyStatus,weeklyLocation,labourText} from './weekly';
 export async function makeWeeklyReport(report:WeeklyReport,items:Inspection[],project:Project,settings:Settings,logoBytes?:ArrayBuffer){
  const doc=await PDFDocument.create(),font=await doc.embedFont(StandardFonts.Helvetica),bold=await doc.embedFont(StandardFonts.HelveticaBold);
  doc.setTitle('ACL Weekly Report - '+project.name+' - '+report.weekStart);doc.setAuthor('ACL');doc.setCreator('ASTA Quality Inspection');
@@ -29,13 +29,13 @@ export async function makeWeeklyReport(report:WeeklyReport,items:Inspection[],pr
   if(!day.inspections.length&&!day.note?.work)await text('No work or inspection entry recorded.',8,false,muted);
   for(const i of day.inspections)await text(weeklyInspectionText(i),8.5);
   if(day.note?.deliveries)await text('Deliveries: '+day.note.deliveries);
-  if(day.note?.labour)await text('Labour: '+day.note.labour);
+  await text('Site team: '+labourText(day.note));
  }
  await heading('2  DELAYS AND OUTSTANDING ITEMS');
- const delays=report.days.filter(d=>d.issues.trim());for(const day of delays)await text(day.date+' - '+day.issues);
+ const delays=report.days.filter(d=>d.date>=report.weekStart&&d.date<=shiftDate(report.weekStart,6)&&d.issues.trim());for(const day of delays)await text(day.date+' - '+day.issues);
  const defects=items.filter(i=>i.defects||weeklyStatus(i)==='Pending');for(const i of defects)await text(weeklyLocation(i)+': '+(i.defects||'Inspection still pending.')+(i.corrective?' Action: '+i.corrective:''));
  if(!delays.length&&!defects.length)await text('No delay or outstanding-item entry recorded.',9,false,muted);
- await heading('3  HEALTH AND SAFETY');const safety=report.days.filter(d=>d.safety.trim());for(const day of safety)await text(day.date+' - '+day.safety);if(!safety.length)await text('No health and safety entry recorded.',9,false,muted);
+ await heading('3  HEALTH AND SAFETY');const safety=report.days.filter(d=>d.date>=report.weekStart&&d.date<=shiftDate(report.weekStart,6)&&d.safety.trim());for(const day of safety)await text(day.date+' - '+day.safety);if(!safety.length)await text('No health and safety entry recorded.',9,false,muted);
  await heading('4  PLANNED FOR NEXT WEEK');await text(report.nextWeek||'Not recorded.');
  for(const [index,p] of doc.getPages().entries()){p.drawLine({start:{x:L,y:34},end:{x:W-L,y:34},thickness:.5,color:rule});p.drawText('ACL | '+report.weekStart+' | '+(index+1)+' / '+doc.getPageCount(),{x:L,y:21,size:8,font,color:muted});}
  return new Blob([await doc.save() as BlobPart],{type:'application/pdf'});

@@ -20,3 +20,7 @@ export function weeklyInspectionText(i:Inspection){
  const checked=i.workDate&&i.workDate!==i.date?' Checked on '+new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'}).format(new Date(i.date+'T12:00:00Z'))+'.':'';
  return `${weeklyLocation(i)}: ${weeklyStatus(i)==='Pass'?work+' installed and passed quality inspection.':work+' activity recorded; quality inspection still pending.'}${checked}${i.comments?' '+i.comments:''}`;
 }
+
+export function labourComplete(report:WeeklyReport){return weekDates(report.weekStart).slice(0,5).every(date=>{const d=report.days.find(d=>d.date===date);return [d?.dryliners,d?.labourers].every(v=>typeof v==='string'&&/^\d+$/.test(v));});}
+export function labourText(day?:import('./model').WeeklyDay){return 'Site Manager / Supervisor | '+(day?.dryliners??'Not recorded')+' Dryliners | '+(day?.labourers??'Not recorded')+' Labourers';}
+export function reportInspections(records:RecordItem[],report:WeeklyReport){return weeklyInspections(records,report.projectId,report.weekStart).filter(i=>!report.excludedInspectionIds?.includes(i.id));}
