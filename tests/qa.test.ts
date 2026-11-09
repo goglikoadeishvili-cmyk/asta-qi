@@ -311,3 +311,9 @@ test('weekly inclusion excludes another project, another week and explicitly exc
  r.excludedInspectionIds=['test'];
  assert.deepEqual(reportInspections([{...base,id:'real'},{...base,id:'test'},{...base,id:'other',projectId:'other'},{...base,id:'old',workDate:'2026-10-30'}],r).map(i=>i.id),['real']);
 });
+
+import {changeInspectionWall} from '../source/lib/checklist-update';
+test('changing a completed wall retains photo files, common associations and identity but resets wall answers',()=>{
+ const i={...sample(),wallType:'IWL-2',stage:'Metal framing',photos:[{id:'a',reportId:'ra',questionId:'tracks',caption:'Head',name:'head.jpg'},{id:'b',reportId:'rb',questionId:'old-only',caption:'Other',name:'other.jpg'}]} as any;
+ const next=changeInspectionWall(i,'IWS-1');assert.equal(next.id,i.id);assert.deepEqual(next.pin,i.pin);assert.equal(next.photos.length,2);assert.equal(next.photos[0].questionId,'tracks');assert.equal(next.photos[1].questionId,undefined);assert.equal(next.photos[1].reportId,'rb');assert.equal(next.photos[1].caption,'Other');assert.equal(next.status,'Pending');assert.ok(next.answers.every(a=>!a.answer));assert.match(next.wallSnapshot,/C-stud/);assert.match(next.answers.find(a=>a.id==='metal-frame')!.expected,/C-stud/);assert.equal(changeInspectionWall(i,'IWL-2'),i);
+});

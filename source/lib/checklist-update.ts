@@ -1,6 +1,6 @@
 import type {Answer,Inspection,Drawing} from './model';
 import {allInspectionAnswers} from './model';
-import {questions,stages,FINISHING_STAGE,isFinishingStage} from './catalogue';
+import {questions,wallTypes,stages,FINISHING_STAGE,isFinishingStage} from './catalogue';
 import {locationForPin} from './drawing-location';
 /** Upgrade an editable copy only. New requirements always need a fresh on-site answer. */
 export function editableInspection(initial:Inspection,drawing?:Drawing){
@@ -27,4 +27,13 @@ export function editableInspection(initial:Inspection,drawing?:Drawing){
  if(d.stage==='Framing & isolation')d.stage=stages[0];
  if(!d.location&&drawing){d.location=locationForPin(drawing,d.pin);d.locationSource='pin';}
  return d;
+}
+
+/** Changing a wall changes criteria, never the saved evidence files or inspection identity. */
+export function changeInspectionWall(initial:Inspection,wallId:string,drawing?:Drawing):Inspection{
+ if(wallId===initial.wallType)return initial;
+ const wall=wallTypes.find(w=>w.id===wallId);if(!wall)throw new Error('Unknown wall type');
+ const answers=questions(wallId,initial.stage);
+ const ids=new Set(answers.map(a=>a.id));
+ return {...initial,wallType:wallId,wallSnapshot:wall.build,specification:drawing?'Current drawing: '+drawing.reference+' · Rev '+drawing.revision:initial.specification,approvalRef:'',approvedBuildUp:'',templateVersion:2,sections:{},legacyAnswers:[...(initial.legacyAnswers||[]),...allInspectionAnswers(initial).filter(a=>a.answer)],answers,description:'',status:'Pending',photos:initial.photos.map(p=>({...p,questionId:p.questionId&&ids.has(p.questionId)?p.questionId:undefined}))};
 }
