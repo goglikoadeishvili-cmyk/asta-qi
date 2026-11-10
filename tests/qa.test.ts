@@ -138,7 +138,7 @@ test('pre-boarding combines the top flat plate with the selected wall insulation
 
 test('IWL-1 uses the company updated 92 mm studs without guessing a replacement track width',()=>{
  const wall=wallTypes.find(w=>w.id==='IWL-1')!;assert.match(wall.build,/92 mm I-stud/);assert.doesNotMatch([wall.build,wall.detail,wall.issue].join(' '),/146 mm|148 mm/);
- const frame=questions('IWL-1',stages[0]).find(q=>q.id==='metal-frame')!;assert.match(frame.question,/92 mm/);assert.match(frame.question,/updated project requirements/);assert.match(frame.expected,/92 mm I-studs at 600 mm centres/);assert.doesNotMatch(frame.expected,/146 mm|148 mm|94 mm/);
+ const frame=questions('IWL-1',stages[0]).find(q=>q.id==='metal-frame')!;assert.match(frame.question,/92 mm/);assert.match(frame.question,/specification and applicable guidance recommendations/);assert.doesNotMatch(frame.question+frame.expected,/updated/i);assert.match(frame.expected,/92 mm I-studs at 600 mm centres/);assert.doesNotMatch(frame.expected,/146 mm|148 mm|94 mm/);
 });
 
 test('sent duplicate cleanup preserves original evidence, drawings and uncertain exports',async()=>{
