@@ -129,7 +129,7 @@ test('short-lived connection survives same-tab reload, stays account-bound and e
 });
 
 test('pre-boarding combines the top flat plate with the selected wall insulation thickness without guessing',()=>{
- for(const [wall,mm] of [['IWL-1',100],['IWL-2',100],['IWS-1',100],['IWS-2',25]] as const){const q=questions(wall,stages[2])[0];assert.equal(q.id,'pre-board-plate');assert.ok(q.question.includes('top flat plate'));assert.ok(q.question.includes(mm+' mm acoustic insulation'));assert.ok(q.expected.includes(mm+' mm acoustic insulation'));assert.match(q.expected,/securely fixed to the metal framing/);}
+ for(const [wall,mm] of [['IWL-1',75],['IWL-2',75],['IWS-1',75],['IWS-2',25]] as const){const q=questions(wall,stages[2])[0];assert.equal(q.id,'pre-board-plate');assert.ok(q.question.includes('top flat plate'));assert.ok(q.question.includes(mm+' mm acoustic insulation'));assert.ok(q.expected.includes(mm+' mm acoustic insulation'));assert.match(q.expected,/securely fixed to the metal framing/);}
  assert.doesNotMatch(questions('IWS-2',stages[2])[0].expected,/100 mm/);
  assert.doesNotMatch(questions('IWL-3',stages[2])[0].expected,/insulation|100 mm/);
  assert.doesNotMatch(questions('BLK-1',stages[2])[0].expected,/100 mm/);
