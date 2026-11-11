@@ -93,9 +93,9 @@ test('real PDF generator fits three checks and twelve photos on one A4 and safel
   metalNine.photos=metalNine.answers.flatMap((q:any,n:number)=>Array.from({length:4},(_,p)=>({id:'metal-'+n+'-'+p,name:'photo.jpg',caption:'',questionId:q.id})));
   assert.equal((await PDFDocument.load(await(await makeReport(metalNine,drawing,settings,urlFor,project,render)).arrayBuffer())).getPageCount(),1,'three metal questions with twelve photos fit one A4');
   const finishingAnswers=questions('IWL-2',FINISHING_STAGE).map(q=>({...q,answer:q.expected,result:'Pass'}));
-  const finishing={...base,stage:FINISHING_STAGE,wallType:'IWL-2',answers:finishingAnswers,photos:finishingAnswers.flatMap((q,n)=>Array.from({length:4},(_,p)=>({id:'finish-'+n+'-'+p,name:'photo.jpg',caption:'',questionId:q.id})))};
+  const finishing={...base,stage:FINISHING_STAGE,wallType:'IWL-2',answers:finishingAnswers,photos:finishingAnswers.flatMap((q,n)=>Array.from({length:3},(_,p)=>({id:'finish-'+n+'-'+p,name:'photo.jpg',caption:'',questionId:q.id})))};
   const finishingPDF=await PDFDocument.load(await(await makeReport(finishing,drawing,settings,urlFor,project,render)).arrayBuffer());
-  assert.equal(finishingPDF.getPageCount(),1,'two finishing checks and eight photos fit one A4');assert.match(finishingPDF.getTitle()!,/Angle and mastic inspection/);
+  assert.equal(finishingPDF.getPageCount(),1,'three finishing checks and nine photos fit one A4');assert.match(finishingPDF.getTitle()!,/Angle and mastic inspection/);
   const multiple={...base,photos:Array.from({length:17},(_,n)=>({id:'pic-'+n,name:'original-'+n+'.jpg',caption:'',questionId:n<9?'tracks':'metal-frame'}))};
   const overflowing=await makeReport(multiple,drawing,settings,urlFor,project,render);
   const second=await PDFDocument.load(await overflowing.arrayBuffer());
@@ -262,7 +262,7 @@ import {inspectionTitle,reportFilename} from '../source/lib/report-names';
 test('hangers and floor mastic have independent checks; boarding keeps gaps without signing off finishing work',()=>{
  for(const wall of ['IWL-1','IWL-2','IWL-3','IWS-1','IWS-2']){
   const board=questions(wall,stages[2]),finishing=questions(wall,FINISHING_STAGE);
-  assert.equal(board.length,3);assert.deepEqual(finishing.map(q=>q.id),['top-hanger','floor-mastic']);
+  assert.equal(board.length,3);assert.deepEqual(finishing.map(q=>q.id),['top-hanger','floor-mastic','head-insulation']);
   assert.doesNotMatch(board.map(q=>q.question+' '+q.expected).join(' '),/mastic|sealant|sealed gaps|top angle|top hanger|over the final layer/i);
   assert.match(finishing[0].expected,/After all plasterboard layers.*over the final plasterboard layer/);
   assert.match(finishing[1].expected,/acoustic.*mastic/i);assert.ok(finishing.every(q=>q.answer===''&&q.result==='Pending'));
