@@ -95,7 +95,12 @@ test('real PDF generator fits three checks and twelve photos on one A4 and safel
   const finishingAnswers=questions('IWL-2',FINISHING_STAGE).map(q=>({...q,answer:q.expected,result:'Pass'}));
   const finishing={...base,stage:FINISHING_STAGE,wallType:'IWL-2',answers:finishingAnswers,photos:finishingAnswers.flatMap((q,n)=>Array.from({length:3},(_,p)=>({id:'finish-'+n+'-'+p,name:'photo.jpg',caption:'',questionId:q.id})))};
   const finishingPDF=await PDFDocument.load(await(await makeReport(finishing,drawing,settings,urlFor,project,render)).arrayBuffer());
-  assert.equal(finishingPDF.getPageCount(),1,'three finishing checks and nine photos fit one A4');assert.match(finishingPDF.getTitle()!,/Angle and mastic inspection/);
+  assert.equal(finishingPDF.getPageCount(),1,'three finishing checks and nine photos fit one A4');assert.match(finishingPDF.getTitle()!,/Top angle and mastic and deflection-head insulation inspection/);
+  for(const [stage,id,title] of [[FINISHING_STAGE,'head-insulation','Deflection-head insulation inspection'],[stages[2],'pre-board-plate','Insulation and flat plate inspection'],[stages[0],'metal-frame','Metal framing inspection']]){
+   const scoped={...base,stage,wallType:'IWL-2',answers:questions('IWL-2',stage).map(q=>({...q,answer:q.expected,result:'Pass',skipped:q.id!==id})),photos:[]};
+   const pdf=await PDFDocument.load(await(await makeReport(scoped,drawing,settings,urlFor,project,render)).arrayBuffer());
+   assert.equal(pdf.getTitle(),title+' - '+scoped.reference);assert.ok(reportFilename(scoped).startsWith(title+' - '));
+  }
   const multiple={...base,photos:Array.from({length:17},(_,n)=>({id:'pic-'+n,name:'original-'+n+'.jpg',caption:'',questionId:n<9?'tracks':'metal-frame'}))};
   const overflowing=await makeReport(multiple,drawing,settings,urlFor,project,render);
   const second=await PDFDocument.load(await overflowing.arrayBuffer());
@@ -271,7 +276,7 @@ test('hangers and floor mastic have independent checks; boarding keeps gaps with
  const generic=questions('CUSTOM',stages[2],'generic','75 mm insulation');assert.doesNotMatch(generic.map(q=>q.question+' '+q.expected).join(' '),/mastic|sealant|top angle|top hanger/i);
  assert.match(questions('IWL-2',stages[0])[0].expected,/2 rows of acoustic sealant/,'head-track sealant remains a separate metal requirement');
  assert.equal(inspectionTitle(FINISHING_STAGE),'Angle and mastic inspection');
- assert.match(reportFilename({...sample(),stage:FINISHING_STAGE,version:1}),/^Angle and mastic inspection/);
+ assert.match(reportFilename({...sample(),stage:FINISHING_STAGE,answers:questions('IWL-2',FINISHING_STAGE),version:1}),/^Top angle and mastic and deflection-head insulation inspection/);
 });
 test('new finishing inspections never inherit boarding answers or photos; reopening old boarding retains history and requires fresh answers',()=>{
  const drawing={id:'d',projectId:'p',floor:'GF',name:'Floor',reference:'A-103',revision:'C1',page:1} as any,project={id:'p',qaProfile:'neos'} as any,pin={x:.5,y:.5,page:1};
@@ -316,4 +321,23 @@ import {changeInspectionWall} from '../source/lib/checklist-update';
 test('changing a completed wall retains photo files, common associations and identity but resets wall answers',()=>{
  const i={...sample(),wallType:'IWL-2',stage:'Metal framing',photos:[{id:'a',reportId:'ra',questionId:'tracks',caption:'Head',name:'head.jpg'},{id:'b',reportId:'rb',questionId:'old-only',caption:'Other',name:'other.jpg'}]} as any;
  const next=changeInspectionWall(i,'IWS-1');assert.equal(next.id,i.id);assert.deepEqual(next.pin,i.pin);assert.equal(next.photos.length,2);assert.equal(next.photos[0].questionId,'tracks');assert.equal(next.photos[1].questionId,undefined);assert.equal(next.photos[1].reportId,'rb');assert.equal(next.photos[1].caption,'Other');assert.equal(next.status,'Pending');assert.ok(next.answers.every(a=>!a.answer));assert.match(next.wallSnapshot,/C-stud/);assert.match(next.answers.find(a=>a.id==='metal-frame')!.expected,/C-stud/);assert.equal(changeInspectionWall(i,'IWL-2'),i);
+});
+
+
+test('PDF names follow non-skipped scope across all three inspection sections',()=>{
+ for(const stage of [stages[0],stages[2],FINISHING_STAGE]){
+  const answers=questions('IWL-2',stage);
+  for(const selected of answers){
+   const i={...sample(),stage,wallType:'IWL-2',answers:answers.map(a=>({...a,skipped:a.id!==selected.id})),sections:{}};
+   const title=inspectionTitle(i);assert.ok(reportFilename(i).startsWith(title+' - '));
+   if(selected.id==='head-insulation')assert.equal(title,'Deflection-head insulation inspection');
+   if(selected.id==='pre-board-plate')assert.equal(title,'Insulation and flat plate inspection');
+   if(selected.id==='top-hanger')assert.equal(title,'Top angle inspection');
+   if(selected.id==='floor-mastic')assert.equal(title,'Mastic inspection');
+   if(selected.id==='metal-frame')assert.equal(title,'Metal framing inspection');
+   assert.ok(!title.includes('Skipped'));
+  }
+ }
+ const answers=questions('IWL-2',FINISHING_STAGE).map(a=>({...a,skipped:a.id==='floor-mastic'}));
+ assert.equal(inspectionTitle({...sample(),stage:FINISHING_STAGE,answers,sections:{}}),'Top angle and deflection-head insulation inspection');
 });

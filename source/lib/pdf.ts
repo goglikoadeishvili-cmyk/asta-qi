@@ -11,7 +11,7 @@ export async function inspectPdf(file:Blob){const p=await pdfjs();const doc=awai
 export async function renderDrawing(url:string,page=1){if(!url)throw new Error('Drawing file is missing. Import its project pack or restore your backup.');const p=await pdfjs();const doc=await p.getDocument(url).promise;try{const pg=await doc.getPage(page);const unscaled=pg.getViewport({scale:1});const scale=Math.min(2,2600/Math.max(unscaled.width,unscaled.height));const vp=pg.getViewport({scale});const c=document.createElement('canvas');c.width=Math.ceil(vp.width);c.height=Math.ceil(vp.height);await pg.render({canvasContext:c.getContext('2d')!,viewport:vp}).promise;return {canvas:c,count:doc.numPages};}finally{await doc.destroy();}}
 export async function makeReport(i:Inspection,drawing:Drawing,settings:Settings,urlFor:(id:string)=>string,project?:Project,render=renderDrawing){
  if(i.drawingSnapshot.reference!==drawing.reference||i.drawingSnapshot.revision!==drawing.revision||i.pin.page!==drawing.page||i.pin.page!==i.drawingSnapshot.page)throw new Error('Inspection drawing reference/revision does not match its saved drawing.');
- const reference=reportReference(i.reference),title=inspectionTitle(i.stage);
+ const reference=reportReference(i.reference),title=inspectionTitle(i);
  const doc=await PDFDocument.create();
  doc.setTitle(title+' - '+reference);doc.setAuthor('ACL');doc.setCreator('ASTA Quality Inspection');
  const font=await doc.embedFont(StandardFonts.Helvetica),bold=await doc.embedFont(StandardFonts.HelveticaBold);
