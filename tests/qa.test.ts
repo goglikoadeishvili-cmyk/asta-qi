@@ -185,16 +185,16 @@ test('weekly reporting rolls on London Mondays across DST and year boundaries wi
  const found=weeklyInspections(rows,'p','2026-11-02');assert.equal(found.length,2);
  const days=weeklyDays(newWeekly('p','2026-11-03'),found);
  assert.equal(days[0].inspections.length,1);assert.equal(days[1].inspections.length,1);assert.equal(days[2].inspections.length,0);
- assert.match(weeklyInspectionText(base),/Metal framing installed and passed quality inspection/);assert.doesNotMatch(weeklyInspectionText(base),/QA-TEST|IWL-1|Drawing|rev |pin |%/);
- assert.match(weeklyInspectionText({...base,workDate:'2026-11-02'}),/Checked on 3 Nov 2026/);
+ assert.match(weeklyInspectionText(base),/Head track, base track, metal framing installation completed/);assert.doesNotMatch(weeklyInspectionText(base),/QA-TEST|IWL-1|Drawing|rev |pin |%/);
+ assert.match(weeklyInspectionText({...base,workDate:'2026-11-02'}),/installation completed/);
  assert.equal(shiftDate('2026-12-31',1),'2027-01-01');
 });
 
 test('weekly activities lead with installed work only when the quality inspection has passed',()=>{
  const i={...sample(),stage:stages[0],date:'2026-11-04',location:'Grid J-K',floor:'GF'};
- assert.match(weeklyInspectionText(i),/Metal framing installed and passed quality inspection/);
- const pending=weeklyInspectionText({...i,status:'Pending'});assert.match(pending,/activity recorded; quality inspection still pending/);assert.doesNotMatch(pending,/installed|passed/);
- assert.match(weeklyInspectionText({...i,stage:stages[2]}),/Plasterboard installed/);
+ assert.match(weeklyInspectionText(i),/Head track, base track, metal framing installation completed/);
+ const pending=weeklyInspectionText({...i,status:'Pending'});assert.match(pending,/work recorded; completion not confirmed/);assert.doesNotMatch(pending,/installation completed|passed/);
+ assert.match(weeklyInspectionText({...i,stage:stages[2],answers:questions('IWL-1',stages[2])}),/Insulation and flat plate, plasterboard, joint flat plates installation completed/);
 });
 import {recoverInspection} from '../source/lib/inspection-drafts';
 test('refresh recovery retains partial answers and photos as Pending, preserving newer saved work on conflict',()=>{
@@ -285,12 +285,12 @@ test('new finishing inspections never inherit boarding answers or photos; reopen
  old.answers[1].expected='The floor gap is filled with FR acoustic sealant.';old.answers[1].answer=old.answers[1].expected;
  old.answers[2].expected='The top angle is fixed over the final layer.';old.answers[2].answer=old.answers[2].expected;
  const copy=editableInspection(old);assert.equal(copy.status,'Pending');assert.equal(copy.answers[1].answer,'');assert.equal(copy.answers[2].answer,'');assert.deepEqual(copy.photos,old.photos);assert.equal(copy.legacyAnswers.length,2);assert.equal(old.status,'Pass');
- assert.match(weeklyInspectionText({...sample(),wallType:'IWL-3',stage:FINISHING_STAGE}),/Angle & mastic installed/);
+ assert.match(weeklyInspectionText({...sample(),wallType:'IWL-3',stage:FINISHING_STAGE,answers:questions('IWL-3',FINISHING_STAGE)}),/Top angle, mastic, deflection-head insulation installation completed/);
 });
 
 test('legacy finishing stage opens with Angle wording while retaining its photo associations',()=>{
  const old={...sample(),templateVersion:2,stage:'Hangers & mastic',wallType:'IWL-2',answers:questions('IWL-2',FINISHING_STAGE).map(q=>({...q,answer:q.expected,result:'Pass'})),photos:[{id:'original-angle',questionId:'top-hanger'}]} as any;
- const copy=editableInspection(old);assert.equal(copy.stage,'Angle & mastic');assert.deepEqual(copy.photos,old.photos);assert.equal(old.stage,'Hangers & mastic');assert.equal(inspectionTitle(old.stage),'Angle and mastic inspection');assert.match(weeklyInspectionText(old),/Angle & mastic/);
+ const copy=editableInspection(old);assert.equal(copy.stage,'Angle & mastic');assert.deepEqual(copy.photos,old.photos);assert.equal(old.stage,'Hangers & mastic');assert.equal(inspectionTitle(old.stage),'Angle and mastic inspection');assert.match(weeklyInspectionText(old),/Top angle, mastic, deflection-head insulation/);
 });
 
 test('explicitly skipped questions permit Pass without treating blank or failed checks as passed',()=>{const i=sample();i.answers[1]={...i.answers[1],answer:'Skipped by inspector',result:'Pending',skipped:true};validateInspection(i);assert.throws(()=>validateInspection({...i,answers:i.answers.map((a:any)=>({...a,skipped:true}))}));assert.throws(()=>validateInspection({...i,answers:i.answers.map((a:any,n:number)=>n===1?{...a,skipped:false,answer:''}:a)}));});
@@ -340,4 +340,23 @@ test('PDF names follow non-skipped scope across all three inspection sections',(
  }
  const answers=questions('IWL-2',FINISHING_STAGE).map(a=>({...a,skipped:a.id==='floor-mastic'}));
  assert.equal(inspectionTitle({...sample(),stage:FINISHING_STAGE,answers,sections:{}}),'Top angle and deflection-head insulation inspection');
+});
+
+import {weeklyWorkEntries,reportInspections} from '../source/lib/weekly';
+import {makeWeeklyReport} from '../source/lib/weekly-pdf';
+test('weekly includes all ten separate records, correct dates and only their non-skipped work',async()=>{
+ const report=newWeekly('p','2026-11-16');
+ const items=Array.from({length:10},(_,n)=>({...sample(),id:'work-'+n,reference:'QI-'+n,projectId:'p',date:'2026-11-'+(16+Math.floor(n/2)),stage:stages[2],drawingSnapshot:{reference:'A1',revision:'C1'},pin:{x:n%2?.6:.4,y:.5,page:1},answers:questions('IWL-1',stages[2]).map(a=>({...a,skipped:a.id!=='pre-board-plate',answer:a.expected,result:'Pass'}))}));
+ assert.equal(reportInspections(items,report).length,10);assert.deepEqual(weeklyDays(report,items).slice(0,5).map(d=>d.inspections.length),[2,2,2,2,2]);
+ const entries=weeklyWorkEntries(items);assert.equal(entries.length,10);assert.match(entries[0].text,/Wall section 1/);assert.match(entries[1].text,/Wall section 2/);
+ for(const entry of entries){assert.match(entry.text,/Insulation and flat plate installation completed/);assert.doesNotMatch(entry.text,/plasterboard|joint flat plates|Pass|inspection|Skipped|QI-/i);}
+ const finish={...items[0],stage:FINISHING_STAGE,answers:questions('IWL-1',FINISHING_STAGE).map(a=>({...a,skipped:a.id!=='head-insulation'}))};
+ assert.match(weeklyInspectionText(finish),/Deflection-head insulation installation completed/);assert.doesNotMatch(weeklyInspectionText(finish),/angle|mastic/i);
+ for(const day of weeklyDays(report,items).slice(0,5))report.days.push({date:day.date,work:'',deliveries:day.date.endsWith('18')?'216 Soundboard sheets; metal and fixings.':'',labour:'',issues:'',safety:'',dryliners:'3',labourers:'2'});
+ const pixel=Uint8Array.from(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWQAAAABJRU5ErkJggg==','base64'));
+ report.nextWeekDrawings=Array.from({length:3},(_,n)=>({id:'plan-'+n,name:'Plan '+n,dataUrl:'data:image/png;base64,'+Buffer.from(pixel).toString('base64')}));
+ const bytes=await makeWeeklyReport(report,items,{name:'NEOS - Haymarket House'} as any,{inspector:'Goga Adeishvili'} as any,pixel.buffer);
+ const pdf=await PDFDocument.load(await bytes.arrayBuffer());assert.equal(pdf.getPageCount(),1);assert.equal(pdf.getAuthor(),'Goga Adeishvili');
+ const roundtrip=JSON.parse(JSON.stringify(report));assert.deepEqual(roundtrip.nextWeekDrawings,report.nextWeekDrawings);
+ const extra={...items[0],id:'same-position-new-record'};assert.equal(weeklyWorkEntries([...items,extra]).length,11);
 });

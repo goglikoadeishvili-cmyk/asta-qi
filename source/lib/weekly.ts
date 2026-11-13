@@ -1,6 +1,7 @@
 import {FINISHING_STAGE,isFinishingStage} from './catalogue';
 import type {Inspection,WeeklyReport,RecordItem} from './model';
-import {projectOf} from './model';
+import {projectOf,reportInspectionAnswers} from './model';
+import {scopeLabel} from './report-names';
 export function dateKey(date=new Date(),zone='Europe/London'){return new Intl.DateTimeFormat('en-CA',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit'}).format(date);}
 export function shiftDate(key:string,days:number){const d=new Date(key+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10);}
 export function monday(key:string){const d=new Date(key+'T12:00:00Z');return shiftDate(key,-((d.getUTCDay()+6)%7));}
@@ -15,10 +16,21 @@ export function weeklyLocation(i:Inspection){
  return i.location?(i.location.toLowerCase().includes(floor.toLowerCase())?i.location:floor+' - '+i.location):floor;
 }
 export function weeklyInspectionText(i:Inspection){
- const stage=weeklyStage(i);
- const work=i.wallType==='IWL-3'&&['Metal framing','Plasterboard'].includes(stage)?(stage==='Metal framing'?'Window reveal framing':'Window reveal plasterboard'):stage;
- const checked=i.workDate&&i.workDate!==i.date?' Checked on '+new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'}).format(new Date(i.date+'T12:00:00Z'))+'.':'';
- return `${weeklyLocation(i)}: ${weeklyStatus(i)==='Pass'?work+' installed and passed quality inspection.':work+' activity recorded; quality inspection still pending.'}${checked}${i.comments?' '+i.comments:''}`;
+ const active=reportInspectionAnswers(i).filter(a=>!a.skipped);if(!active.length)return '';
+ const labels=[...new Set(active.map(a=>scopeLabel(a,i)||weeklyStage(i)))];
+ const work=labels.map((label,n)=>n?label[0].toLowerCase()+label.slice(1):label).join(', ');
+ return `${weeklyLocation(i)}: ${work} ${i.status==='Pass'?'installation completed.':'work recorded; completion not confirmed.'}`;
+}
+export function weeklyWorkEntries(items:Inspection[]){
+ const groups=new Map<string,Inspection[]>();
+ const key=(i:Inspection)=>[i.floor,i.location,i.drawingId,i.drawingSnapshot.reference,i.drawingSnapshot.revision,i.pin.page].join('|');
+ const pin=(i:Inspection)=>i.pin.x.toFixed(6)+','+i.pin.y.toFixed(6);
+ for(const i of items){const k=key(i);groups.set(k,[...(groups.get(k)||[]),i]);}
+ return items.map(i=>{const text=weeklyInspectionText(i);if(!text)return {inspection:i,text};
+  const positions=[...new Set(groups.get(key(i))!.map(pin))].sort();
+  const suffix=positions.length>1?' - Wall section '+(positions.indexOf(pin(i))+1):'';
+  return {inspection:i,text:text.replace(weeklyLocation(i)+':',weeklyLocation(i)+suffix+':')};
+ });
 }
 
 export function labourComplete(report:WeeklyReport){return weekDates(report.weekStart).slice(0,5).every(date=>{const d=report.days.find(d=>d.date===date);return [d?.dryliners,d?.labourers].every(v=>typeof v==='string'&&/^\d+$/.test(v));});}

@@ -1,7 +1,7 @@
 import {reportInspectionAnswers,type Inspection,type Answer} from './model';
 export const reportReference=(reference:string)=>reference.replace(/^(QA|QN)-/,'QI-');
 const stageTitle=(stage:string)=>/(?:hangers|angle).*mastic/i.test(stage)?'Angle and mastic inspection':/plaster|board/i.test(stage)?'Plasterboard inspection':'Metal inspection';
-function scopeLabel(q:Answer,i:Inspection):string|undefined{
+export function scopeLabel(q:Answer,i:Inspection):string|undefined{
  switch(q.id){
   case 'top-hanger':return 'Top angle';
   case 'floor-mastic':case 'interface-mastic':return 'Mastic';
