@@ -15,6 +15,7 @@ export function editableInspection(initial:Inspection,drawing?:Drawing){
    const old=answers.find(a=>a.id===q.id);
    if(!old){changed=true;return q;}
    const newRequirement=q.question!==old.question||q.expected!==old.expected;
+   if(newRequirement&&old.skipped)return {...q,skipped:true,answer:old.answer,result:old.result,comment:old.comment||''};
    if(newRequirement){changed=true;if(old.answer)d.legacyAnswers=[...(d.legacyAnswers||[]),{...old}];return {...q,comment:old.comment||'',answer:'',result:'Pending' as const};}
    return {...old,source:q.source,requiresHeadMeasurement:false,referenceIds:undefined};
   });

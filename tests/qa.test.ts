@@ -18,7 +18,7 @@ test('provider rejection stays failed; network uncertainty cannot mark sent or b
 test('oversize attachment offers link; secure link mode uses no attachment',async()=>{const e={...env(),ATTACHMENT_LIMIT_MB:'0.0001'},bytes=await zip(),original=globalThis.fetch;assert.equal((await handle(await req(bytes),e)).status,413);let calls=0;globalThis.fetch=async(_url,options)=>{calls++;const payload=JSON.parse(String(options?.body));assert.equal(payload.attachments.length,0);assert.match(payload.text,/\/download\/[a-f0-9]{64}/);return Response.json({id:'accepted-link'});};try{assert.equal((await handle(await req(bytes,true),e)).status,200);assert.equal(calls,1);}finally{globalThis.fetch=original;}});
 test('gateway blocks unauthorised requests and non-PDF ZIP contents',async()=>{const e=env();assert.equal((await handle(new Request('https://gateway.example.test/send',{method:'POST'}),e)).status,401);const z=new JSZip();z.file('malware.html','hello');const bytes=await z.generateAsync({type:'uint8array'});assert.throws(()=>validateZip(bytes));});
 
-test('head and base tracks have separate washer checks before framing',()=>{for(const id of ['IWL-1','IWL-2','IWS-1']){const list=questions(id,stages[0]);assert.deepEqual(list.map(q=>q.id),['tracks','base-tracks','metal-frame']);assert.match(list[0].expected,/2 FireLine/);assert.match(list[0].expected,/1 x 12.5 mm black/);assert.match(list[0].expected,/washers at all head fixings/);assert.match(list[0].expected,/2 rows of acoustic sealant/);assert.match(list[1].expected,/2 x 12.5 mm blue.*25 mm/);assert.match(list[1].expected,/washers at all base fixings/);}assert.doesNotMatch(questions('IWS-2',stages[0])[1].expected,/600 mm centres/);});
+test('head and base tracks have separate washer checks before framing',()=>{for(const id of ['IWL-1','IWL-2','IWS-1']){const list=questions(id,stages[0]);assert.deepEqual(list.map(q=>q.id),['tracks','base-tracks','metal-frame']);assert.match(list[0].expected,/2 x 15 mm Fireboard/);assert.match(list[0].expected,/1 x 12.5 mm black/);assert.match(list[0].expected,/washers at all head fixings/);assert.match(list[0].expected,/2 rows of acoustic sealant/);assert.match(list[1].expected,/2 x 12.5 mm blue.*25 mm/);assert.match(list[1].expected,/washers at all base fixings/);}assert.doesNotMatch(questions('IWS-2',stages[0])[1].expected,/600 mm centres/);});
 test('boarding asks about fixed plates without mandatory measurements or manufacturer wording',()=>{const q=questions('IWL-2',stages[2]);assert.deepEqual(q.map(q=>q.id),['pre-board-plate','boarding','final-plate']);assert.ok(!q[0].requiresHeadMeasurement);assert.match(q[0].expected,/securely fixed/);assert.doesNotMatch(q.map(x=>x.expected).join(' '),/Knauf|ALPHA|head offset|150 mm|70 mm/);});
 test('Pending reopens and can become Pass with existing inspection photos, without a photo quota per question',()=>{const i={...sample(),templateVersion:2,stage:stages[2],answers:questions('IWL-2',stages[2]).map(q=>({...q,answer:q.expected,result:'Pass'})),photos:[{id:'one',questionId:'pre-board-plate'},{id:'two',questionId:'boarding'}],status:'Pending'} as any;validateInspection(i);i.status='Pass';validateInspection(i);validateInspection({...i,photos:[i.photos[0]]});assert.throws(()=>validateInspection({...i,photos:[]}),/evidence photo/);validateInspection({...i,status:'Pending',photos:[],answers:[],description:''});});
 test('boarding refers to manufacturer guidance instead of claiming its installation detail is on the drawing',()=>{const q=questions('IWL-2',stages[2])[1];assert.match(q.question,/manufacturer/);assert.match(q.expected,/manufacturer/);assert.doesNotMatch(q.expected,/Knauf|ALPHA/);assert.match(q.expected,/5-7 mm/);assert.doesNotMatch(q.expected,/mastic|sealant|sealed gaps/i);});
@@ -33,7 +33,7 @@ test('framing and boarding at the same pin are independent records with no copie
 
 import {prepareBatch} from '../source/lib/archive';
 import {gmailRaw,sendGmail,GmailSendError,GMAIL_ZIP_LIMIT,connectGmail} from '../source/lib/gmail';
-test('report ZIP contains only clearly named PDFs and no loose originals or JSON',async()=>{const a={...sample(),reference:'QA-ONE',floor:'GF',stage:'Tracks & metal framing',version:1},b={...a,id:'other',reference:'QN-TWO',stage:'Plasterboard'};const result=await prepareBatch([a,b] as any,async i=>new Blob(['%PDF-1.7\n'+i.reference]));const zip=await JSZip.loadAsync(await result.blob.arrayBuffer());assert.deepEqual(Object.keys(zip.files),['Metal inspection - GF - QI-ONE - v1.pdf','Plasterboard inspection - GF - QI-TWO - v1.pdf']);assert.equal(validateZip(new Uint8Array(await result.blob.arrayBuffer())),2);});
+test('report ZIP contains only clearly named PDFs and no loose originals or JSON',async()=>{const a={...sample(),reference:'QA-ONE',floor:'GF',stage:'Tracks & metal framing',version:1},b={...a,id:'other',reference:'QN-TWO',stage:'Plasterboard'};const result=await prepareBatch([a,b] as any,async i=>new Blob(['%PDF-1.7\n'+i.reference]));const zip=await JSZip.loadAsync(await result.blob.arrayBuffer());assert.deepEqual(Object.keys(zip.files),['Metal inspection - GF - QI-ONE - v1.pdf','15 mm Soundboard inspection - GF - QI-TWO - v1.pdf']);assert.equal(validateZip(new Uint8Array(await result.blob.arrayBuffer())),2);});
 test('Gmail MIME sends one recipient and one unchanged ZIP with Unicode subject/message',async()=>{const bytes=await zip();const raw=await gmailRaw({from:'sender@example.test',to:'recipient@example.test',subject:'QI — შემოწმება',message:'გამარჯობა\nPlease review.',zip:new Blob([bytes]),batchId:id});const mime=Buffer.from(raw.replace(/-/g,'+').replace(/_/g,'/'),'base64').toString();assert.equal((mime.match(/Content-Disposition: attachment/g)||[]).length,1);assert.match(mime,/To: recipient@example.test\r\n/);const part=mime.split('Content-Disposition: attachment; filename="ASTA-Quality-Inspection-reports.zip"')[1];const payload=part.split('\r\n\r\n')[1].split('\r\n--')[0];assert.deepEqual(new Uint8Array(Buffer.from(payload,'base64')),bytes);await assert.rejects(()=>gmailRaw({from:'sender@example.test',to:'a@example.test\r\nBcc: b@example.test',subject:'QI',message:'Hello',zip:new Blob([bytes]),batchId:id}),/valid recipient/);await assert.rejects(()=>gmailRaw({from:'sender@example.test',to:'recipient@example.test',subject:'QI',message:'Hello',zip:new Blob([new Uint8Array(GMAIL_ZIP_LIMIT+1)]),batchId:id}),/attachment limit/);});
 test('Gmail confirms only a success with message ID, preserving rejected and uncertain outcomes',async()=>{let calls=0;assert.equal(await sendGmail('encoded','test-token',async(url,opts)=>{calls++;assert.equal(url,'https://gmail.googleapis.com/gmail/v1/users/me/messages/send');assert.deepEqual(JSON.parse(String(opts?.body)),{raw:'encoded'});return Response.json({id:'gmail-message-id'})}),'gmail-message-id');assert.equal(calls,1);await assert.rejects(()=>sendGmail('encoded','test-token',async()=>Response.json({error:{message:'Denied'}},{status:403})),(e:any)=>e instanceof GmailSendError&&!e.uncertain);for(const response of [async()=>{throw new Error('connection lost')},async()=>Response.json({error:{message:'Provider unavailable'}},{status:503}),async()=>Response.json({})])await assert.rejects(()=>sendGmail('encoded','test-token',response),(e:any)=>e instanceof GmailSendError&&e.uncertain);});
 test('Gmail account connection rejects a different sender and revokes its token',async()=>{const originalFetch=globalThis.fetch;const prior=(globalThis as any).window;let revoked=false;(globalThis as any).window={google:{accounts:{oauth2:{hasGrantedAllScopes:()=>true,revoke:()=>{revoked=true},initTokenClient:(c:any)=>({requestAccessToken:()=>c.callback({access_token:'test-only',expires_in:3600})})}}}};globalThis.fetch=async()=>Response.json({email:'other@example.test',email_verified:true});try{await assert.rejects(()=>connectGmail('test.apps.googleusercontent.com','sender@example.test'),/Choose the sender account/);assert.ok(revoked);}finally{globalThis.fetch=originalFetch;(globalThis as any).window=prior;}});
@@ -134,7 +134,7 @@ test('short-lived connection survives same-tab reload, stays account-bound and e
 });
 
 test('pre-boarding combines the top flat plate with the selected wall insulation thickness without guessing',()=>{
- for(const [wall,mm] of [['IWL-1',75],['IWL-2',75],['IWS-1',75],['IWS-2',25]] as const){const q=questions(wall,stages[2])[0];assert.equal(q.id,'pre-board-plate');assert.ok(q.question.includes('top flat plate'));assert.ok(q.question.includes(mm+' mm acoustic insulation'));assert.ok(q.expected.includes(mm+' mm acoustic insulation'));assert.match(q.expected,/securely fixed to the metal framing/);}
+ for(const [wall,mm] of [['IWL-1',75],['IWL-2',75],['IWS-1',75],['IWS-2',25]] as const){const q=questions(wall,stages[2])[0];assert.equal(q.id,'pre-board-plate');assert.ok(q.question.includes('top flat plate'));assert.ok(new RegExp(mm+' mm (?:RW3 )?acoustic insulation').test(q.question));assert.ok(new RegExp(mm+' mm (?:RW3 )?acoustic insulation').test(q.expected));assert.match(q.expected,/securely fixed to the metal framing/);}
  assert.doesNotMatch(questions('IWS-2',stages[2])[0].expected,/100 mm/);
  assert.doesNotMatch(questions('IWL-3',stages[2])[0].expected,/insulation|100 mm/);
  assert.doesNotMatch(questions('BLK-1',stages[2])[0].expected,/100 mm/);
@@ -161,7 +161,7 @@ test('sent duplicate cleanup preserves original evidence, drawings and uncertain
 test('each wall keeps its own insulation, layers, reveal brackets and track system',()=>{
  for(const wall of wallTypes){
   const metal=questions(wall.id,stages[0]),board=questions(wall.id,stages[2]);
-  if(wall.insulationMm){assert.match(board[0].expected,new RegExp(wall.insulationMm+' mm acoustic insulation'));}
+  if(wall.insulationMm){assert.match(board[0].expected,new RegExp(wall.insulationMm+' mm (?:RW3 )?acoustic insulation'));}
   else{for(const q of [...metal,...board])assert.doesNotMatch(q.question+' '+q.expected,/\binsulation\b/i);}
   if(wall.id==='IWL-3'){
    assert.match(metal[0].expected,/92 mm/);assert.match(metal[1].question,/acoustic brackets/);
@@ -194,7 +194,7 @@ test('weekly activities lead with installed work only when the quality inspectio
  const i={...sample(),stage:stages[0],date:'2026-11-04',location:'Grid J-K',floor:'GF'};
  assert.match(weeklyInspectionText(i),/Head track, base track, metal framing installation completed/);
  const pending=weeklyInspectionText({...i,status:'Pending'});assert.match(pending,/work recorded; completion not confirmed/);assert.doesNotMatch(pending,/installation completed|passed/);
- assert.match(weeklyInspectionText({...i,stage:stages[2],answers:questions('IWL-1',stages[2])}),/Insulation and flat plate, plasterboard, joint flat plates installation completed/);
+ assert.match(weeklyInspectionText({...i,stage:stages[2],answers:questions('IWL-1',stages[2])}),/Insulation and flat plate, 15 mm Soundboard, joint flat plates installation completed/);
 });
 import {recoverInspection} from '../source/lib/inspection-drafts';
 test('refresh recovery retains partial answers and photos as Pending, preserving newer saved work on conflict',()=>{
@@ -212,7 +212,7 @@ test('site detail checklist stays within three checks and applies gaps to the co
   const board=questions(id,stages[2]);assert.match(board[1].question,/all four.*5-7 mm/);assert.doesNotMatch(board[1].expected,/mastic|sealant|sealed gaps/i);
   assert.match(board[2].question,/plasterboard joints/);assert.doesNotMatch(board[2].expected,/top angle|hanger|over the final layer/i);
  }
- assert.match(questions('IWS-1',stages[2])[1].question,/both plasterboard layers on each face/);
+ assert.match(questions('IWS-1',stages[2])[1].question,/both 15 mm Soundboard layers on each face/);
  assert.doesNotMatch(questions('IWL-3',stages[2]).map(q=>q.expected).join(' '),/insulation|100 mm/);
 });
 test('expanded checks require fresh answers on an editable copy while preserving saved evidence and old answers',()=>{
@@ -270,8 +270,8 @@ test('hangers and floor mastic have independent checks; boarding keeps gaps with
   assert.equal(board.length,3);assert.deepEqual(finishing.map(q=>q.id),['top-hanger','floor-mastic','head-insulation']);
   assert.doesNotMatch(board.map(q=>q.question+' '+q.expected).join(' '),/mastic|sealant|sealed gaps|top angle|top hanger|over the final layer/i);
   assert.match(finishing[0].expected,/After all plasterboard layers.*over the final plasterboard layer/);
-  assert.match(finishing[1].expected,/acoustic.*mastic/i);assert.ok(finishing.every(q=>q.answer===''&&q.result==='Pending'));
-  assert.match(finishing[0].expected,/25 x 50 mm/);assert.doesNotMatch(finishing[0].question+' '+finishing[0].expected,/hanger/i);assert.match(finishing[1].expected,/After all plasterboard layers.*FR acoustic mastic/);if(wall!=='IWS-2')assert.match(finishing[1].expected,/5-7 mm/);
+  assert.match(finishing[1].expected,/acoustic.*sealant/i);assert.ok(finishing.every(q=>q.answer===''&&q.result==='Pending'));
+  assert.match(finishing[0].expected,/25 x 50 mm/);assert.doesNotMatch(finishing[0].question+' '+finishing[0].expected,/hanger/i);assert.match(finishing[1].expected,/After all .* layers.*FR acoustic sealant/);if(wall!=='IWS-2')assert.match(finishing[1].expected,/5-7 mm/);
  }
  const generic=questions('CUSTOM',stages[2],'generic','75 mm insulation');assert.doesNotMatch(generic.map(q=>q.question+' '+q.expected).join(' '),/mastic|sealant|top angle|top hanger/i);
  assert.match(questions('IWL-2',stages[0])[0].expected,/2 rows of acoustic sealant/,'head-track sealant remains a separate metal requirement');
@@ -359,4 +359,26 @@ test('weekly includes all ten separate records, correct dates and only their non
  const pdf=await PDFDocument.load(await bytes.arrayBuffer());assert.equal(pdf.getPageCount(),1);assert.equal(pdf.getAuthor(),'Goga Adeishvili');
  const roundtrip=JSON.parse(JSON.stringify(report));assert.deepEqual(roundtrip.nextWeekDrawings,report.nextWeekDrawings);
  const extra={...items[0],id:'same-position-new-record'};assert.equal(weeklyWorkEntries([...items,extra]).length,11);
+});
+
+
+test('NEOS revised material specification is consistent without replacing shaftwall or other project systems',()=>{
+ for(const wall of ['IWL-1','IWL-2','IWS-1']){
+  const metal=questions(wall,stages[0]);assert.match(metal[0].question,/one layer of black isolation strip.*two layers of 15 mm Fireboard/);assert.match(metal[0].expected,/2 x 15 mm Fireboard/);assert.doesNotMatch(JSON.stringify(metal),/FireLine|two 2/);
+  const board=questions(wall,stages[2]);for(const text of [board[0].question,board[0].expected]){assert.match(text,/75 mm RW3/);assert.match(text,/60 kg\/m³/);}
+  assert.match(board[1].expected,/15 mm Soundboard/);
+  const finish=questions(wall,FINISHING_STAGE);assert.match(finish[1].question,/15 mm Soundboard.*FR acoustic sealant/);assert.match(finish[2].expected,/RW3 insulation/);
+ }
+ assert.match(questions('IWS-2',stages[2])[0].expected,/25 mm acoustic insulation/);assert.doesNotMatch(JSON.stringify(questions('IWS-2',stages[2])),/RW3|Soundboard/);
+ assert.doesNotMatch(JSON.stringify(questions('CUSTOM',stages[2],'generic','75 mm acoustic insulation')),/RW3|Soundboard/);
+ const board=questions('IWS-1',stages[2]).map(q=>({...q,skipped:q.id!=='boarding'}));assert.equal(inspectionTitle({...sample(),wallType:'IWS-1',stage:stages[2],answers:board}),'15 mm Soundboard inspection');
+ const old={...sample(),templateVersion:2,stage:stages[2],wallType:'IWL-2',specification:'',wallSnapshot:'',answers:questions('IWL-2',stages[2]).map(q=>({...q,answer:'Historical answer',skipped:q.id!=='pre-board-plate'}))};old.answers[0].expected='75 mm insulation installed';old.answers[1].expected='Old boarding wording';
+ const copy=editableInspection(old);assert.equal(copy.status,'Pending');assert.equal(copy.answers[0].answer,'');assert.equal(copy.answers[1].skipped,true);assert.equal(old.answers[0].answer,'Historical answer');assert.deepEqual(copy.photos,old.photos);
+});
+
+
+test('NEOS display-name update changes only recognised default aliases',()=>{
+ const project={id:DEFAULT_PROJECT_ID,kind:'project',name:'NEOS · Haymarket House'} as any;
+ assert.equal((migrateProjects([project]).find(r=>r.id===project.id) as any).name,'Neos, Tiger Tiger, Haymarket House');
+ assert.equal(migrateProjects([{...project,name:'Owner custom name'}]).length,0);
 });

@@ -62,7 +62,7 @@ export async function makeReport(i:Inspection,drawing:Drawing,settings:Settings,
    page.drawText('QUALITY INSPECTION',{x:logo?110:L,y:825,size:10.5,font:bold,color:rgb(1,1,1)});
    page.drawText('DRYLINING / SITE RECORD',{x:logo?110:L,y:811,size:7.2,font,color:rgb(.69,.80,.92)});y=785;
   }else{
-   page.drawText(reference+' / '+title+' / CONTINUED',{x:L,y:817,size:8,font,color:muted});
+   page.drawText(reference+' / CONTINUED',{x:L,y:817,size:8,font,color:muted});
    page.drawLine({start:{x:L,y:807},end:{x:W-L,y:807},thickness:.6,color:rule});y=791;
   }
  }
@@ -84,12 +84,18 @@ export async function makeReport(i:Inspection,drawing:Drawing,settings:Settings,
   await drawText(lines[0],x+px,yy,8,false,ink);
  }
  startPage();
- await drawText(title,L,782,16,true);
+ const headingWidth=W-L*2-125;
+ let headingSize=16;while(headingSize>9&&measure(title,headingSize,true)>headingWidth)headingSize-=.25;
+ await drawText(title,L,782,headingSize,true);
  await drawText(reference,L,765,8.5,true,muted);
- await drawText((i.status==='Pass'?'PASS':'PENDING')+'  /  '+i.wallType+'  /  '+(isFinishingStage(i.stage)?FINISHING_STAGE:i.stage===stages[2]?'Plasterboard':i.stage),L,749,8.5,true,blue);
+ const stageLabel=title.replace(/ inspection$/,'');
+ const statusLabel=(i.status==='Pass'?'PASS':'PENDING')+'  /  '+i.wallType+'  /  '+stageLabel;
+ let statusSize=8.5;while(statusSize>6&&measure(statusLabel,statusSize,true)>headingWidth)statusSize-=.25;
+ await drawText(statusLabel,L,749,statusSize,true,blue);
  const floor=project?.floors?.find(f=>f.id===i.floor)?.name||drawing.floorName||floors.find(f=>f.id===i.floor)?.name||i.floor;
- await drawCompactLabel('Project',project?.name||'Project',L,733,390);
- await drawCompactLabel('Inspected by','ACL',245,717,170);
+ await drawCompactLabel('Project',project?.id==='neos-haymarket'&&['NEOS · Haymarket House','NEOS - Haymarket House'].includes(project.name)?'Neos, Tiger Tiger, Haymarket House':project?.name||'Project',L,733,390);
+ const inspector=settings.inspector==='Goga'||settings.inspector==='ACL'?'Goga Adeishvili':settings.inspector;
+ await drawCompactLabel('Inspected by',(inspector||'Goga Adeishvili')+'  ACL',245,717,170);
  await drawCompactLabel('Floor',floor,L,717,200);
  await drawCompactLabel('Date',i.date,245,701,170);
  await drawCompactLabel('Location',i.location,L,701,210);

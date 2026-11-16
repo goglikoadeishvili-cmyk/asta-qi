@@ -7,7 +7,7 @@ export function scopeLabel(q:Answer,i:Inspection):string|undefined{
   case 'floor-mastic':case 'interface-mastic':return 'Mastic';
   case 'head-insulation':return 'Deflection-head insulation';
   case 'pre-board-plate':return /insulation/i.test(q.question)?'Insulation and flat plate':/bracket/i.test(q.question)?'Acoustic brackets and backing':'Pre-boarding flat plate';
-  case 'boarding':return 'Plasterboard';
+  case 'boarding':return i.qaProfile!=='generic'&&['IWL-1','IWL-2','IWL-3','IWS-1'].includes(i.wallType)?'15 mm Soundboard':'Plasterboard';
   case 'final-plate':return 'Joint flat plates';
   case 'tracks':return i.wallType==='IWL-3'?'Window reveal framing':/top and bottom|head and base/i.test(q.question)?'Head and base tracks':'Head track';
   case 'base-tracks':return 'Base track';
@@ -24,7 +24,7 @@ export function inspectionTitle(input:string|Inspection){
  if(labels.some(x=>!x))return stageTitle(input.stage);
  const finishing=/(?:hangers|angle).*mastic/i.test(input.stage);
  // Complete framing/boarding scopes retain their familiar concise category names.
- if(!finishing&&active.length===checks.length&&active.length>1)return stageTitle(input.stage);
+ if(!finishing&&active.length===checks.length&&active.length>1)return /plaster|board/i.test(input.stage)&&input.qaProfile!=='generic'&&['IWL-1','IWL-2','IWL-3','IWS-1'].includes(input.wallType)?'15 mm Soundboard inspection':stageTitle(input.stage);
  const unique=[...new Set(labels as string[])];
  return unique.map((label,n)=>n?label[0].toLowerCase()+label.slice(1):label).join(' and ')+' inspection';
 }
