@@ -1,3 +1,4 @@
+import {assemblyChecks,assemblyWalls} from './assembly';
 import type {Answer} from './model';
 export const layoutName='Internal Wall Lay-outs - rev.C1-021126(1).pdf';
 export const specificationRef='TIG-RYD-SP-A-1005 P2 (Draft for Information, 15 Apr 2026)';
@@ -37,6 +38,7 @@ function legacyStageQuestion(wallId:string,stage:string):Answer[]{
  return [{id:'stage-summary',question,expected,source:w.source,answer:'',result:'Pending',comment:''}];
 }
 export function questions(wallId:string,stage:string,profile:'neos'|'generic'='neos',customSpec=''):Answer[]{
+ if(profile==='generic' && customSpec.startsWith('Assembly Hotel / ') && Object.prototype.hasOwnProperty.call(assemblyWalls,wallId))return assemblyChecks(wallId,stage);
  const make=(id:string,question:string,expected:string,source:string,extra:Partial<Answer>={}):Answer=>({id,question,section:stage,expected,source,answer:'',result:'Pending',comment:'',...extra});
  const metal=stage===stages[0]||stage==='Framing & isolation';const boarding=stage===stages[2];
  const genericInsulation=customSpec.match(/\b(\d+(?:\.\d+)?)\s*mm\s+(?:acoustic\s+)?insulation\b/i);
