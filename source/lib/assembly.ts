@@ -16,6 +16,7 @@ export function assemblyChecks(id:string,stage:string):Answer[]{
     rows.push(['stud','Does the installed frame match this requirement? '+frame+'.','The frame matches the specified arrangement: '+frame+'.']);
     if(id!=='IL1'){
       rows.push(['track','Are the head and base tracks and their fixings installed to the '+id+' detail?','The head and base tracks and fixings match the detail.']);
+      rows.push(['head-board-strips','Where shown, are the board strips at the head track installed to the applicable deflection head detail?','The board strips at the head track match the type, number and fixing arrangement shown in the deflection head detail.']);
       rows.push(['firestrip','Where shown, is Gyproc FireStrip installed at the head track as detailed?','Gyproc FireStrip is installed at the head track as detailed.']);
     }
   }else if(stage==='Insulation & first fix'){
