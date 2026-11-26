@@ -22,3 +22,6 @@
 .env.*.local
 
 /tests/.shared-tests.mjs
+
+!/drawings/assembly-level-10-t2.pdf
+!/source/public/drawings/assembly-level-10-t2.pdf
